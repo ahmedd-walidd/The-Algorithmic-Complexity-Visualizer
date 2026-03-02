@@ -1,7 +1,17 @@
 .app {
-  max-width: 1280px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
   padding: 2rem;
-  text-align: center;
+  box-sizing: border-box;
+}
+
+.app h1 {
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 

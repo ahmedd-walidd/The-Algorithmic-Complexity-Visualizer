@@ -1,0 +1,15 @@
+.node {
+  width: 25px;
+  height: 25px;
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  box-sizing: border-box;
+}
+
+.node-start {
+  background-color: #4caf50;
+}
+
+.node-end {
+  background-color: #f44336;
+}
