@@ -1,0 +1,103 @@
+/* ── panel container ────────────────────────────────────── */
+.control-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+  background-color: #16213e;
+  border-radius: 12px;
+  border: 1px solid #1a1a4e;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── buttons ───────────────────────────────────────────── */
+.control-panel button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #2a2a5e;
+  border-radius: 6px;
+  background-color: #0f3460;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.control-panel button:hover:not(:disabled) {
+  background-color: #1a5276;
+  border-color: #4a90d9;
+}
+
+.control-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── select ────────────────────────────────────────────── */
+.control-panel select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #2a2a5e;
+  border-radius: 6px;
+  background-color: #0f3460;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* ── race toggle ───────────────────────────────────────── */
+.race-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.race-toggle input {
+  cursor: pointer;
+  accent-color: #e94560;
+}
+
+/* ── speed buttons ─────────────────────────────────────── */
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #a0a0a0;
+  font-size: 0.85rem;
+}
+
+.speed-btn {
+  padding: 0.3rem 0.6rem !important;
+  font-size: 0.75rem !important;
+}
+
+.speed-btn.active {
+  background-color: #e94560 !important;
+  border-color: #e94560 !important;
+  color: #ffffff !important;
+}
+
+/* ── visualize / start-race button ─────────────────────── */
+.visualize-btn {
+  background-color: #e94560 !important;
+  border-color: #e94560 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  padding: 0.6rem 1.5rem !important;
+  font-size: 0.95rem !important;
+}
+
+.visualize-btn:hover:not(:disabled) {
+  background-color: #c0392b !important;
+}
