@@ -1067,155 +1067,135 @@ function App() {
         </div>
       )}
 
-      {isRaceMode ? (
-        <div className="race-container">
-          <Grid
-            grid={grid}
-            onMouseDown={handleMouseDown}
-            onMouseEnter={handleMouseEnter}
-            onMouseUp={handleMouseUp}
-            prefix="bfs-"
-            label="BFS"
-            cellSize={RACE_CELL}
-          />
-          <Grid
-            grid={grid}
-            onMouseDown={handleMouseDown}
-            onMouseEnter={handleMouseEnter}
-            onMouseUp={handleMouseUp}
-            prefix="astar-"
-            label="A*"
-            cellSize={RACE_CELL}
-          />
-        </div>
-      ) : (
-        <Grid
-          grid={grid}
-          onMouseDown={handleMouseDown}
-          onMouseEnter={handleMouseEnter}
-          onMouseUp={handleMouseUp}
-        />
-      )}
-
-      {!isRaceMode && isPaused && pausedComparison && hoveredFrontierNode && (
-        <section className="node-proof-hover-panel" aria-live="polite">
-          <div className="node-proof-card">
-            <p>
-              <strong>Hovered node:</strong> ({hoveredFrontierNode.row}, {hoveredFrontierNode.col})
-            </p>
-            <p>
-              <strong>Equation for this node:</strong> {hoveredFrontierEquation}
-            </p>
-
-            {pausedComparison.algorithm === 'astar' ? (
-              <>
-                <p>
-                  <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredFrontierNode.f}, minimum f={pausedComparison.minComparison?.minF ?? 'N/A'}
-                </p>
-                <p>
-                  <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={pausedComparison.minComparison?.minHAmongMinF ?? 'N/A'}
-                </p>
-                <p>
-                  <strong>Why this node matters:</strong> A* only expands frontier nodes with minimum f(n)=g(n)+h(n). If several nodes tie on f, the smallest h is selected. Hover any frontier node to compare it with the current minimum.
-                </p>
-              </>
-            ) : (
-              <>
-                <p>
-                  <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredFrontierNode.g}, minimum g={pausedComparison.minComparison?.minG ?? 'N/A'}
-                </p>
-                <p>
-                  <strong>BFS metric mapping:</strong> h(n)=0, so f(n)=g(n). This node has minimum frontier depth.
-                </p>
-                <p>
-                  <strong>Why this node matters:</strong> BFS always expands the shallowest queued layer first. Hover any frontier node to compare its depth with the current minimum.
-                </p>
-              </>
-            )}
-          </div>
-        </section>
-      )}
-
-      {!isRaceMode && (
-        <section className="formal-trace-panel">
-          <h2>Step-by-Step Mathematical Trace</h2>
-
-          {isVisualizing && !isRaceMode && (
-            <p className="trace-hotkey">
-              Press <strong>Space</strong> to {isPaused ? 'resume' : 'pause'} the run.
-            </p>
+      <div className="main-layout">
+        <div className="visualizer-container">
+          {isRaceMode ? (
+            <div className="race-container">
+              <Grid
+                grid={grid}
+                onMouseDown={handleMouseDown}
+                onMouseEnter={handleMouseEnter}
+                onMouseUp={handleMouseUp}
+                prefix="bfs-"
+                label="BFS"
+                cellSize={RACE_CELL}
+              />
+              <Grid
+                grid={grid}
+                onMouseDown={handleMouseDown}
+                onMouseEnter={handleMouseEnter}
+                onMouseUp={handleMouseUp}
+                prefix="astar-"
+                label="A*"
+                cellSize={RACE_CELL}
+              />
+            </div>
+          ) : (
+            <Grid
+              grid={grid}
+              onMouseDown={handleMouseDown}
+              onMouseEnter={handleMouseEnter}
+              onMouseUp={handleMouseUp}
+            />
           )}
 
-          <p className="formal-invariant">
-            {algorithm === 'astar'
-              ? 'Formal invariant (A*): each expansion chooses a node with minimum f(n)=g(n)+h(n) on the frontier (tie-broken by minimum h). With Manhattan h on this unit 4-neighbor grid, h is consistent, so once a node is closed, its g is optimal.'
-              : 'Formal invariant (BFS): the queue expands nodes in non-decreasing depth g. Writing BFS as f(n)=g(n)+h(n) with h(n)=0 gives f(n)=g(n), so first discovery of a node is its shortest-path depth.'}
-          </p>
+          {!isRaceMode && isPaused && pausedComparison && hoveredFrontierNode && (
+            <section className="node-proof-hover-panel" aria-live="polite">
+              <div className="node-proof-card">
+                <p>
+                  <strong>Hovered node:</strong> ({hoveredFrontierNode.row}, {hoveredFrontierNode.col})
+                </p>
+                <p>
+                  <strong>Equation for this node:</strong> {hoveredFrontierEquation}
+                </p>
 
-          {traceNotice && <p className="trace-notice">{traceNotice}</p>}
-
-          {!currentTrace && !traceNotice && (
-            <p className="trace-empty">
-              Run a single algorithm to see a complete formal proof trace for every move.
-            </p>
-          )}
-
-          {currentTrace && (
-            <div className="trace-card">
-              <p>
-                <strong>Step:</strong> {currentTrace.expansionIndex + 1} / {formalTrace.length}
-              </p>
-              <p>
-                <strong>Expanded node:</strong> ({currentTrace.expandedNode.row}, {currentTrace.expandedNode.col})
-              </p>
-              <p>
-                <strong>Node equation:</strong> {currentTrace.equation}
-              </p>
-              <p>
-                <strong>Selection rule:</strong> {currentTrace.selectedBecause}
-              </p>
-              <p>
-                <strong>Neighbor attempts:</strong> {(currentTrace.attempts || []).length}
-              </p>
-
-              <div className="attempt-list">
-                {(currentTrace.attempts || []).map((attempt, idx) => (
-                  <div key={`${attempt.to.row}-${attempt.to.col}-${idx}`} className="attempt-item">
+                {pausedComparison.algorithm === 'astar' ? (
+                  <>
                     <p>
-                      <strong>Neighbor ({attempt.to.row}, {attempt.to.col}):</strong>{' '}
-                      {attempt.decision.toUpperCase()} ({attempt.reason})
+                      <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredFrontierNode.f}, minimum f={pausedComparison.minComparison?.minF ?? 'N/A'}
                     </p>
-                    <p>{attempt.equation}</p>
+                    <p>
+                      <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={pausedComparison.minComparison?.minHAmongMinF ?? 'N/A'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredFrontierNode.g}, minimum g={pausedComparison.minComparison?.minG ?? 'N/A'}
+                    </p>
+                  </>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {!isRaceMode && (
+          <aside className="side-panel">
+            <section className="formal-trace-panel">
+              <h2>Mathematical Trace</h2>
+
+              {isVisualizing && (
+                <p className="trace-hotkey">
+                  Press <strong>Space</strong> to {isPaused ? 'resume' : 'pause'}.
+                </p>
+              )}
+
+              {traceNotice && <p className="trace-notice">{traceNotice}</p>}
+
+              {!currentTrace && !traceNotice && (
+                <p className="trace-empty">
+                  Run a single algorithm to see the formal proof trace.
+                </p>
+              )}
+
+              {currentTrace && (
+                <div className="trace-card">
+                  <p>
+                    <strong>Step:</strong> {currentTrace.expansionIndex + 1} / {formalTrace.length}
+                  </p>
+                  <p>
+                    <strong>Expanded:</strong> ({currentTrace.expandedNode.row}, {currentTrace.expandedNode.col})
+                  </p>
+                  <p>
+                    <strong>Equation:</strong> {currentTrace.equation}
+                  </p>
+                  <p>
+                    <strong>Rule:</strong> {currentTrace.selectedBecause}
+                  </p>
+
+                  <div className="attempt-list">
+                    {(currentTrace.attempts || []).slice(0, 4).map((attempt, idx) => (
+                      <div key={`${attempt.to.row}-${attempt.to.col}-${idx}`} className="attempt-item-mini">
+                        <span>
+                          <strong>Neighbor ({attempt.to.row}, {attempt.to.col}):</strong>{' '}
+                          {attempt.decision.toUpperCase().substring(0, 10)}
+                        </span>
+                      </div>
+                    ))}
+                    {(currentTrace.attempts || []).length > 4 && (
+                      <p className="more-attempts">...</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── stats cards inside sidebar ── */}
+            {stats && (
+              <div className="stats-sidebar">
+                {Object.entries(stats).map(([key, { visited, path }]) => (
+                  <div key={key} className="stat-card-mini">
+                    <h3>{key === 'bfs' ? 'BFS' : 'A*'}</h3>
+                    <p>Visited: <strong>{visited}</strong></p>
+                    <p>Path: <strong>{path > 0 ? path : '—'}</strong></p>
                   </div>
                 ))}
               </div>
-
-              <p className="trace-summary">
-                <strong>Step conclusion:</strong> {currentTrace.summary}
-              </p>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── stats cards ── */}
-      {stats && (
-        <div className="stats-container">
-          {Object.entries(stats).map(([key, { visited, path }]) => (
-            <div key={key} className="stat-card">
-              <h3>{key === 'bfs' ? 'BFS' : 'A*'}</h3>
-              <p>
-                Nodes visited: <span className="stat-value">{visited}</span>
-              </p>
-              <p>
-                Path length:{' '}
-                <span className="stat-value">{path > 0 ? path : '—'}</span>
-              </p>
-              {path === 0 && <p className="no-path">No path found!</p>}
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </aside>
+        )}
+      </div>
     </div>
   );
 }
