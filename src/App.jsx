@@ -19,22 +19,21 @@ import './App.css';
 // Increased base delays so traversal is easier to follow visually.
 const SPEED_MS = { slow: 140, medium: 80, fast: 40 };
 const RACE_CELL = 14; // smaller cells when two grids are side-by-side
+const GAMIFICATION_WEIGHTS = {
+  alpha: 0.9,
+  beta: 0.1,
+  maxQuestionScore: 100,
+};
 
-const PROOF_CHECK_INFO = {
-  frontierMinRuleHolds: {
-    label: 'Best frontier node was selected',
-    description:
-      'A* must expand a frontier node with the smallest total score f(n)=g(n)+h(n), using h as tie-break.',
-  },
-  queueDepthRuleHolds: {
-    label: 'Shallowest queue layer was selected',
-    description:
-      'BFS must expand nodes in non-decreasing depth, so the queue front has the minimum depth g(n).',
-  },
-  equationHolds: {
-    label: 'Score equation is consistent',
-    description: 'The displayed values satisfy f(n)=g(n)+h(n).',
-  },
+const INITIAL_SCORE_STATE = {
+  totalScore: 0,
+  questionsAnswered: 0,
+  correctAnswers: 0,
+  totalResponseTime: 0,
+  lastQuestionScore: 0,
+  lastAccuracy: 0,
+  lastResponseTime: 0,
+  lastAttempts: 0,
 };
 
 function App() {
@@ -49,17 +48,32 @@ function App() {
   const timeoutsRef = useRef([]);
 
   const [isQuizMode, setIsQuizMode] = useState(false);
-  const [quizState, setQuizState] = useState({ active: false, candidates: [], nextCorrectIndex: -1, message: '' });
+  const [quizState, setQuizState] = useState({
+    active: false,
+    candidates: [],
+    nextCorrectIndex: -1,
+    message: '',
+    awaitingContinue: false,
+    continueFunc: null,
+    feedbackType: 'question',
+  });
+  const [scoreState, setScoreState] = useState(INITIAL_SCORE_STATE);
   const [formalTrace, setFormalTrace] = useState([]);
   const [activeTraceIndex, setActiveTraceIndex] = useState(-1);
   const [traceNotice, setTraceNotice] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [pausedComparison, setPausedComparison] = useState(null);
-  const [hoveredGoldNode, setHoveredGoldNode] = useState(null);
+  const [hoveredFrontierNode, setHoveredFrontierNode] = useState(null);
 
   const isPausedRef = useRef(false);
   const isQuizModeRef = useRef(false);
   const quizStateRef = useRef(quizState);
+  const quizProgressRef = useRef({
+    questionStartedAt: 0,
+    attempts: 0,
+    selectedKeys: new Set(),
+    awarded: false,
+  });
   const formalTraceRef = useRef(formalTrace);
   const runStateRef = useRef({
     phase: 'idle',
@@ -75,6 +89,74 @@ function App() {
     pauseInterval: 15,
     stepFunc: null,
   });
+
+  const buildWrongPredictionMessage = useCallback((row, col, state) => {
+    const key = `${row}-${col}`;
+    const clicked = state?.frontierByKey?.[key];
+    const ruleMeta = state?.ruleMeta;
+
+    if (!clicked || !ruleMeta) {
+      return 'Incorrect. Formal rule: the next expansion must satisfy the algorithm ordering rule over the current frontier.';
+    }
+
+    if (ruleMeta.algorithm === 'astar') {
+      const clickedF = clicked.f;
+      const clickedH = clicked.h;
+      const minF = ruleMeta.minF;
+      const minH = ruleMeta.minHAmongMinF;
+
+      if (clickedF > minF) {
+        return `Incorrect: this node has f=${clickedF} (g+h=${clicked.g}+${clicked.h}), but A* must choose minimum frontier f=${minF}.`;
+      }
+
+      return `Incorrect: this node ties on f=${clickedF}, but its h=${clickedH} is larger than the minimum tie-break h=${minH}.`;
+    }
+
+    const clickedG = clicked.g;
+    const minG = ruleMeta.minG;
+    return `Incorrect: this node has depth g=${clickedG}, but BFS expands minimum frontier depth first (h=0 ⇒ f=g), so next must have g=${minG}.`;
+  }, []);
+
+  const buildCorrectPredictionMessage = useCallback((row, col, state) => {
+    const key = `${row}-${col}`;
+    const clicked = state?.frontierByKey?.[key];
+    const ruleMeta = state?.ruleMeta;
+
+    if (!clicked || !ruleMeta) {
+      return 'Correct. This node satisfies the algorithm ordering rule for the current frontier. Press Continue.';
+    }
+
+    if (ruleMeta.algorithm === 'astar') {
+      return `Correct: this node has minimum frontier f=${ruleMeta.minF}, and tie-break minimum h=${ruleMeta.minHAmongMinF}. (g+h=${clicked.g}+${clicked.h}=${clicked.f}) Press Continue.`;
+    }
+
+    return `Correct: this node has minimum frontier depth g=${ruleMeta.minG}. In BFS, h=0 so f=g, therefore it is a valid next expansion. Press Continue.`;
+  }, []);
+
+  const resetGamification = useCallback(() => {
+    setScoreState(INITIAL_SCORE_STATE);
+    quizProgressRef.current = {
+      questionStartedAt: 0,
+      attempts: 0,
+      selectedKeys: new Set(),
+      awarded: false,
+    };
+  }, []);
+
+  const calculateQuestionScore = useCallback((attempts, responseTimeMs) => {
+    const accuracy = attempts > 0 ? 1 / attempts : 0;
+    const responseSeconds = Math.max(responseTimeMs / 1000, 0);
+    const responseComponent = 1 / (1 + responseSeconds);
+    const rawScore =
+      GAMIFICATION_WEIGHTS.alpha * accuracy + GAMIFICATION_WEIGHTS.beta * responseComponent;
+
+    return {
+      accuracy,
+      responseSeconds,
+      responseComponent,
+      questionScore: Math.round(rawScore * GAMIFICATION_WEIGHTS.maxQuestionScore),
+    };
+  }, []);
 
   useEffect(() => {
     isQuizModeRef.current = isQuizMode;
@@ -104,17 +186,77 @@ function App() {
         const isCandidate = quizState.candidates?.some(c => c.row === row && c.col === col);
         if (!isCandidate) return;
 
+        if (quizState.awaitingContinue) {
+          setQuizState((prev) => ({
+            ...prev,
+            message: 'Answer already evaluated. Press Continue to proceed.',
+          }));
+          return;
+        }
+
+        const key = `${row}-${col}`;
+        if (quizProgressRef.current.selectedKeys.has(key)) {
+          setQuizState((prev) => ({
+            ...prev,
+            message: 'This node was already evaluated for this prompt. Pick another candidate.',
+          }));
+          return;
+        }
+        quizProgressRef.current.selectedKeys.add(key);
+
+  quizProgressRef.current.attempts += 1;
+
         // Check if the clicked node is one of the correct ones
         const isCorrect = quizState.correctNodes?.some(c => c.row === row && c.col === col);
         
         if (isCorrect) {
-            // Right answer!
-            quizState.resumeFunc();
+          const responseTimeMs =
+            quizProgressRef.current.questionStartedAt > 0
+              ? performance.now() - quizProgressRef.current.questionStartedAt
+              : 0;
+          const scoring = calculateQuestionScore(
+            quizProgressRef.current.attempts,
+            responseTimeMs
+          );
+          const attemptsUsed = quizProgressRef.current.attempts;
+          quizProgressRef.current.awarded = true;
+
+          setScoreState((prev) => ({
+            ...prev,
+            totalScore: prev.totalScore + scoring.questionScore,
+            questionsAnswered: prev.questionsAnswered + 1,
+            correctAnswers: prev.correctAnswers + 1,
+            totalResponseTime: prev.totalResponseTime + scoring.responseSeconds,
+            lastQuestionScore: scoring.questionScore,
+            lastAccuracy: scoring.accuracy,
+            lastResponseTime: scoring.responseSeconds,
+            lastAttempts: attemptsUsed,
+          }));
+
+          const detailedMessage = buildCorrectPredictionMessage(row, col, quizState);
+          setQuizState((prev) => ({
+            ...prev,
+            awaitingContinue: true,
+            feedbackType: 'correct',
+            attemptCount: attemptsUsed,
+            scoreBreakdown: scoring,
+            message: `${detailedMessage} Score +${scoring.questionScore} (accuracy ${scoring.accuracy.toFixed(
+              2
+            )}, response ${scoring.responseSeconds.toFixed(2)}s).`,
+          }));
         } else {
             // Wrong answer
             const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
             if (el) el.classList.add('node-prediction-wrong');
-            setQuizState(prev => ({ ...prev, message: 'Incorrect! That node is not next in the queue. Try another highlighted node.' }));
+          const detailedMessage = buildWrongPredictionMessage(row, col, quizState);
+          setQuizState(prev => ({
+            ...prev,
+            feedbackType: 'incorrect',
+            message: detailedMessage,
+            attemptCount: quizProgressRef.current.attempts,
+            // Keep Continue visible if the learner already selected a valid next node.
+            awaitingContinue: prev.awaitingContinue,
+          }));
         }
         return;
       }
@@ -130,18 +272,25 @@ function App() {
         return next;
       });
     },
-    [isVisualizing, quizState, isPaused]
+    [
+      isVisualizing,
+      quizState,
+      isPaused,
+      buildWrongPredictionMessage,
+      buildCorrectPredictionMessage,
+      calculateQuestionScore,
+    ]
   );
 
   const handleMouseEnter = useCallback(
     (row, col) => {
       if (isPaused && pausedComparison) {
-        const hovered = (pausedComparison.candidateNodes || []).find(
+        const hovered = (pausedComparison.frontierNodes || []).find(
           (n) => n.row === row && n.col === col
         );
-        setHoveredGoldNode(hovered || null);
-      } else if (hoveredGoldNode) {
-        setHoveredGoldNode(null);
+        setHoveredFrontierNode(hovered || null);
+      } else if (hoveredFrontierNode) {
+        setHoveredFrontierNode(null);
       }
 
       if (!isMousePressed || isVisualizing) return;
@@ -154,7 +303,7 @@ function App() {
         return next;
       });
     },
-    [isMousePressed, isVisualizing, isPaused, pausedComparison, hoveredGoldNode]
+    [isMousePressed, isVisualizing, isPaused, pausedComparison, hoveredFrontierNode]
   );
 
   const handleMouseUp = useCallback(() => setIsMousePressed(false), []);
@@ -171,6 +320,12 @@ function App() {
     });
   }, []);
 
+  const clearFrontierHoverHighlight = useCallback(() => {
+    document.querySelectorAll('.node-frontier-hoverable').forEach((el) => {
+      el.classList.remove('node-frontier-hoverable');
+    });
+  }, []);
+
   const applyNextChoiceHighlight = useCallback((nodes, prefix = '') => {
     clearNextChoiceHighlight();
     (nodes || []).forEach((n) => {
@@ -180,6 +335,16 @@ function App() {
       el.classList.add('node-next-choice');
     });
   }, [clearNextChoiceHighlight]);
+
+  const applyFrontierHoverHighlight = useCallback((nodes, prefix = '') => {
+    clearFrontierHoverHighlight();
+    (nodes || []).forEach((n) => {
+      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
+      if (!el) return;
+      if (el.classList.contains('node-wall')) return;
+      el.classList.add('node-frontier-hoverable');
+    });
+  }, [clearFrontierHoverHighlight]);
 
   const resetRunState = () => {
     runStateRef.current = {
@@ -210,6 +375,7 @@ function App() {
             'node-prediction-wrong',
             'node-prediction-correct',
             'node-prediction-not-correct',
+            'node-frontier-hoverable',
             'node-next-choice'
           )
         );
@@ -232,6 +398,7 @@ function App() {
         stepIndex: nextIndex,
         chosenNode: nextTrace.expandedNode,
         chosenScores: nextTrace.expandedScores,
+        frontierNodes: [],
         candidateNodes: [],
         minComparison: null,
         algorithm: nextTrace.algorithm,
@@ -251,6 +418,7 @@ function App() {
         stepIndex: nextIndex,
         chosenNode: nextTrace.expandedNode,
         chosenScores: nextTrace.expandedScores,
+        frontierNodes: frontier.map((n) => ({ row: n.row, col: n.col, g: n.g, h: n.h, f: n.f })),
         candidateNodes,
         minComparison: {
           minF,
@@ -269,6 +437,7 @@ function App() {
       stepIndex: nextIndex,
       chosenNode: nextTrace.expandedNode,
       chosenScores: nextTrace.expandedScores,
+      frontierNodes: frontier.map((n) => ({ row: n.row, col: n.col, g: n.g, h: 0, f: n.g })),
       candidateNodes,
       minComparison: {
         minG,
@@ -281,14 +450,16 @@ function App() {
     clearAllTimeouts();
     const comparison = getNextTraversalComparison();
     setPausedComparison(comparison);
-    setHoveredGoldNode(null);
+    setHoveredFrontierNode(null);
+    applyFrontierHoverHighlight(comparison?.frontierNodes || []);
     applyNextChoiceHighlight(comparison?.candidateNodes || []);
-  }, [getNextTraversalComparison, applyNextChoiceHighlight]);
+  }, [getNextTraversalComparison, applyNextChoiceHighlight, applyFrontierHoverHighlight]);
 
   const resumeRun = useCallback(() => {
     clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
     setPausedComparison(null);
-    setHoveredGoldNode(null);
+    setHoveredFrontierNode(null);
 
     const run = runStateRef.current;
     if (run.phase === 'idle' || run.phase === 'done') return;
@@ -299,7 +470,7 @@ function App() {
       runStateRef.current.stepFunc?.();
     }, delay);
     timeoutsRef.current.push(t);
-  }, [clearNextChoiceHighlight]);
+  }, [clearNextChoiceHighlight, clearFrontierHoverHighlight]);
 
   const togglePause = useCallback(() => {
     if (!isVisualizing || isRaceMode) return;
@@ -350,12 +521,13 @@ function App() {
     setIsVisualizing(false);
     setIsPaused(false);
     isPausedRef.current = false;
+    resetGamification();
     setFormalTrace([]);
     setActiveTraceIndex(-1);
     setPausedComparison(null);
-    setHoveredGoldNode(null);
+    setHoveredFrontierNode(null);
     setTraceNotice('');
-  }, [clearNextChoiceHighlight]);
+  }, [clearNextChoiceHighlight, resetGamification]);
 
   const handleClearBoard = useCallback(() => {
     clearAllTimeouts();
@@ -367,12 +539,13 @@ function App() {
     setIsVisualizing(false);
     setIsPaused(false);
     isPausedRef.current = false;
+    resetGamification();
     setFormalTrace([]);
     setActiveTraceIndex(-1);
     setPausedComparison(null);
-    setHoveredGoldNode(null);
+    setHoveredFrontierNode(null);
     setTraceNotice('');
-  }, [clearNextChoiceHighlight]);
+  }, [clearNextChoiceHighlight, resetGamification]);
 
   const handleClearPath = useCallback(() => {
     clearAllTimeouts();
@@ -384,12 +557,13 @@ function App() {
     setIsVisualizing(false);
     setIsPaused(false);
     isPausedRef.current = false;
+    resetGamification();
     setFormalTrace([]);
     setActiveTraceIndex(-1);
     setPausedComparison(null);
-    setHoveredGoldNode(null);
+    setHoveredFrontierNode(null);
     setTraceNotice('');
-  }, [clearNextChoiceHighlight]);
+  }, [clearNextChoiceHighlight, resetGamification]);
 
   // ── animation engine ─────────────────────────────────────
   const animateAlgorithm = (visited, path, prefix, ms, optionsByIndex, onDone, onStep) => {
@@ -468,44 +642,93 @@ function App() {
               }
             });
 
+            const continueAfterFeedback = () => {
+              if (isPausedRef.current) {
+                setQuizState((prev) => ({
+                  ...prev,
+                  message: 'Paused. Press Space to resume, then continue.',
+                }));
+                return;
+              }
+
+              selectable.forEach((c) => {
+                const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
+                if (el) {
+                  el.classList.remove(
+                    'node-prediction-candidate',
+                    'node-prediction-correct',
+                    'node-prediction-not-correct'
+                  );
+                }
+              });
+
+              setQuizState({
+                active: false,
+                candidates: [],
+                correctNodes: [],
+                message: '',
+                awaitingContinue: false,
+                continueFunc: null,
+                feedbackType: 'question',
+              });
+              quizProgressRef.current = {
+                questionStartedAt: 0,
+                attempts: 0,
+                selectedKeys: new Set(),
+                awarded: false,
+              };
+
+              const n = run.visited[run.visitedIndex];
+              const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
+              if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
+                el.classList.add('node-visited');
+              }
+
+              run.onStep?.(run.visitedIndex);
+              run.visitedIndex += 1;
+              scheduleNextTick();
+            };
+
             setQuizState({
               active: true,
               candidates: selectable,
               correctNodes: correct,
               message: 'Quiz: Which node will be expanded next? (Click a glowing node)',
-              resumeFunc: () => {
-                if (isPausedRef.current) {
-                  setQuizState((prev) => ({
-                    ...prev,
-                    message: 'Paused. Press Space to resume, then choose the next node.',
-                  }));
-                  return;
+              awaitingContinue: false,
+              continueFunc: continueAfterFeedback,
+              feedbackType: 'question',
+              ruleMeta: (() => {
+                const traceStep = formalTraceRef.current[i];
+                const frontier = traceStep?.frontierBeforeExpansion || [];
+                if (!traceStep || frontier.length === 0) return null;
+
+                if (traceStep.algorithm === 'astar') {
+                  const minF = Math.min(...frontier.map((n) => n.f));
+                  const minHAmongMinF = Math.min(
+                    ...frontier.filter((n) => n.f === minF).map((n) => n.h)
+                  );
+                  return { algorithm: 'astar', minF, minHAmongMinF };
                 }
 
-                selectable.forEach((c) => {
-                  const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
-                  if (el) {
-                    el.classList.remove(
-                      'node-prediction-candidate',
-                      'node-prediction-correct',
-                      'node-prediction-not-correct'
-                    );
-                  }
+                const minG = Math.min(...frontier.map((n) => n.g));
+                return { algorithm: 'bfs', minG };
+              })(),
+              frontierByKey: (() => {
+                const traceStep = formalTraceRef.current[i];
+                const frontier = traceStep?.frontierBeforeExpansion || [];
+                const byKey = {};
+                frontier.forEach((n) => {
+                  byKey[`${n.row}-${n.col}`] = n;
                 });
-
-                setQuizState({ active: false, candidates: [], correctNodes: [], message: '' });
-
-                const n = run.visited[run.visitedIndex];
-                const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
-                if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
-                  el.classList.add('node-visited');
-                }
-
-                run.onStep?.(run.visitedIndex);
-                run.visitedIndex += 1;
-                scheduleNextTick();
-              },
+                return byKey;
+              })(),
             });
+            quizProgressRef.current = {
+              questionStartedAt: performance.now(),
+              attempts: 0,
+              selectedKeys: new Set(),
+              awarded: false,
+            };
 
             return;
           }
@@ -548,6 +771,62 @@ function App() {
     step();
   };
 
+  const animateAlgorithmRace = (visited, path, prefix, ms, onDone) => {
+    if (visited.length === 0) {
+      onDone?.();
+      return;
+    }
+
+    let visitedIndex = 0;
+
+    const animateRacePath = () => {
+      if (path.length === 0) {
+        onDone?.();
+        return;
+      }
+
+      let pathIndex = 0;
+      const pathStep = () => {
+        if (pathIndex >= path.length) {
+          onDone?.();
+          return;
+        }
+
+        const n = path[pathIndex];
+        const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
+        if (el && !n.isStart && !n.isEnd) {
+          el.classList.remove('node-visited');
+          el.classList.add('node-shortest-path');
+        }
+
+        pathIndex += 1;
+        const t = setTimeout(pathStep, ms * 3);
+        timeoutsRef.current.push(t);
+      };
+
+      pathStep();
+    };
+
+    const visitStep = () => {
+      if (visitedIndex >= visited.length) {
+        animateRacePath();
+        return;
+      }
+
+      const n = visited[visitedIndex];
+      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
+      if (el && !n.isStart && !n.isEnd) {
+        el.classList.add('node-visited');
+      }
+
+      visitedIndex += 1;
+      const t = setTimeout(visitStep, ms);
+      timeoutsRef.current.push(t);
+    };
+
+    visitStep();
+  };
+
   // ── visualise (single or race) ───────────────────────────
   const handleVisualize = useCallback(() => {
     if (isVisualizing) return;
@@ -562,11 +841,12 @@ function App() {
     setIsVisualizing(true);
     setIsPaused(false);
     isPausedRef.current = false;
+    resetGamification();
     setStats(null);
     setFormalTrace([]);
     setActiveTraceIndex(-1);
     setPausedComparison(null);
-    setHoveredGoldNode(null);
+    setHoveredFrontierNode(null);
     setTraceNotice('');
 
     const ms = SPEED_MS[speed];
@@ -591,7 +871,7 @@ function App() {
           setIsVisualizing(false);
           setIsPaused(false);
           isPausedRef.current = false;
-          setHoveredGoldNode(null);
+          setHoveredFrontierNode(null);
           setStats({
             bfs: { visited: bfsVisited.length, path: bfsPathNodes.length },
             astar: { visited: astarVisited.length, path: astarPathNodes.length },
@@ -601,9 +881,9 @@ function App() {
 
       setTraceNotice('Detailed formal trace is disabled in Race Mode to avoid mixed proof streams.');
 
-      // race mode code block...
-      animateAlgorithm(bfsVisited, bfsPathNodes, 'bfs-', ms, null, onDone);
-      animateAlgorithm(astarVisited, astarPathNodes, 'astar-', ms, null, onDone);
+      // race mode: independent animation loops for both sides
+      animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone);
+      animateAlgorithmRace(astarVisited, astarPathNodes, 'astar-', ms, onDone);
     } else {
       /* ── single algorithm ── */
       const copy = cloneGrid(cleanGrid);
@@ -636,7 +916,7 @@ function App() {
           setIsPaused(false);
           isPausedRef.current = false;
           setPausedComparison(null);
-          setHoveredGoldNode(null);
+          setHoveredFrontierNode(null);
           clearNextChoiceHighlight();
           setStats({
             [algorithm]: { visited: visited.length, path: pathNodes.length },
@@ -648,15 +928,15 @@ function App() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grid, algorithm, isRaceMode, speed, isVisualizing, isQuizMode]);
+  }, [grid, algorithm, isRaceMode, speed, isVisualizing, isQuizMode, resetGamification]);
 
   const currentTrace =
     activeTraceIndex >= 0 && activeTraceIndex < formalTrace.length
       ? formalTrace[activeTraceIndex]
       : null;
 
-  const hoveredGoldEquation = hoveredGoldNode
-    ? `f(n)=g(n)+h(n)=${hoveredGoldNode.g}+${hoveredGoldNode.h}=${hoveredGoldNode.f}`
+  const hoveredFrontierEquation = hoveredFrontierNode
+    ? `f(n)=g(n)+h(n)=${hoveredFrontierNode.g}+${hoveredFrontierNode.h}=${hoveredFrontierNode.f}`
     : '';
 
   // ── render ───────────────────────────────────────────────
@@ -680,47 +960,110 @@ function App() {
         isVisualizing={isVisualizing}
       />
 
-      <section className="legend-panel" aria-label="Visualizer legend">
-        <h2>Legend</h2>
-        <div className="legend-grid">
-          <div className="legend-item">
-            <span className="legend-swatch swatch-start" />
-            <span>Start node</span>
+      <div className="legend-help" aria-label="Legend help">
+        <button
+          type="button"
+          className="legend-trigger"
+          aria-label="Show legend"
+        >
+          ?
+        </button>
+
+        <section className="legend-panel legend-popover" aria-label="Visualizer legend">
+          <h2>Legend</h2>
+          <div className="legend-grid">
+            <div className="legend-item">
+              <span className="legend-swatch swatch-start" />
+              <span>Start node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-end" />
+              <span>Goal node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-wall" />
+              <span>Wall (blocked)</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-unvisited" />
+              <span>Unvisited node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-visited" />
+              <span>Visited during search</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-path" />
+              <span>Shortest path</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-candidate" />
+              <span>Quiz candidate node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-next" />
+              <span>Gold = next mathematically valid choice when paused</span>
+            </div>
           </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-end" />
-            <span>Goal node</span>
+        </section>
+      </div>
+
+      {isQuizMode && (
+        <section className="score-panel" aria-label="Gamification score">
+          <h2>Gamification Score</h2>
+          <p>
+            Correct choices are rewarded most. Faster responses provide a smaller bonus.
+          </p>
+          <div className="score-grid">
+            <div className="score-metric">
+              <span className="score-label">Total score</span>
+              <strong>{scoreState.totalScore}</strong>
+            </div>
+            <div className="score-metric">
+              <span className="score-label">Questions answered</span>
+              <strong>{scoreState.questionsAnswered}</strong>
+            </div>
+            <div className="score-metric">
+              <span className="score-label">Correct answers</span>
+              <strong>{scoreState.correctAnswers}</strong>
+            </div>
+            <div className="score-metric">
+              <span className="score-label">Average response time</span>
+              <strong>
+                {scoreState.questionsAnswered > 0
+                  ? `${(scoreState.totalResponseTime / scoreState.questionsAnswered).toFixed(2)}s`
+                  : '—'}
+              </strong>
+            </div>
           </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-wall" />
-            <span>Wall (blocked)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-unvisited" />
-            <span>Unvisited node</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-visited" />
-            <span>Visited during search</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-path" />
-            <span>Shortest path</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-candidate" />
-            <span>Quiz candidate node</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-swatch swatch-next" />
-            <span>Gold = next mathematically valid choice when paused</span>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {quizState.active && (
         <div className="quiz-overlay">
           <h2>{isPaused ? 'Paused — ' : ''}{quizState.message}</h2>
+          <div className="quiz-score-mini">
+            <span>Total score: <strong>{scoreState.totalScore}</strong></span>
+            <span>Answered: <strong>{scoreState.questionsAnswered}</strong></span>
+            <span>
+              Accuracy: <strong>{scoreState.questionsAnswered > 0 ? `${Math.round((scoreState.correctAnswers / scoreState.questionsAnswered) * 100)}%` : '—'}</strong>
+            </span>
+          </div>
+          {quizState.scoreBreakdown && (
+            <p className="quiz-score-breakdown">
+              Question score: <strong>{quizState.scoreBreakdown.questionScore}</strong> · Accuracy <strong>{quizState.scoreBreakdown.accuracy.toFixed(2)}</strong> · Response <strong>{quizState.scoreBreakdown.responseSeconds.toFixed(2)}s</strong>
+            </p>
+          )}
+          {quizState.awaitingContinue && (
+            <button
+              className="quiz-continue-btn"
+              type="button"
+              onClick={() => quizState.continueFunc?.()}
+              disabled={isPaused}
+            >
+              Continue
+            </button>
+          )}
         </div>
       )}
 
@@ -754,38 +1097,38 @@ function App() {
         />
       )}
 
-      {!isRaceMode && isPaused && pausedComparison && hoveredGoldNode && (
+      {!isRaceMode && isPaused && pausedComparison && hoveredFrontierNode && (
         <section className="node-proof-hover-panel" aria-live="polite">
           <div className="node-proof-card">
             <p>
-              <strong>Hovered node:</strong> ({hoveredGoldNode.row}, {hoveredGoldNode.col})
+              <strong>Hovered node:</strong> ({hoveredFrontierNode.row}, {hoveredFrontierNode.col})
             </p>
             <p>
-              <strong>Equation for this node:</strong> {hoveredGoldEquation}
+              <strong>Equation for this node:</strong> {hoveredFrontierEquation}
             </p>
 
             {pausedComparison.algorithm === 'astar' ? (
               <>
                 <p>
-                  <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredGoldNode.f}, minimum f={pausedComparison.minComparison?.minF ?? 'N/A'}
+                  <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredFrontierNode.f}, minimum f={pausedComparison.minComparison?.minF ?? 'N/A'}
                 </p>
                 <p>
-                  <strong>Tie-break check:</strong> hovered h={hoveredGoldNode.h}, minimum h among minimum-f nodes={pausedComparison.minComparison?.minHAmongMinF ?? 'N/A'}
+                  <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={pausedComparison.minComparison?.minHAmongMinF ?? 'N/A'}
                 </p>
                 <p>
-                  <strong>Why this is valid:</strong> A* expands nodes with minimum f(n)=g(n)+h(n). For equal f, minimum h is selected. This node satisfies that rule.
+                  <strong>Why this node matters:</strong> A* only expands frontier nodes with minimum f(n)=g(n)+h(n). If several nodes tie on f, the smallest h is selected. Hover any frontier node to compare it with the current minimum.
                 </p>
               </>
             ) : (
               <>
                 <p>
-                  <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredGoldNode.g}, minimum g={pausedComparison.minComparison?.minG ?? 'N/A'}
+                  <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredFrontierNode.g}, minimum g={pausedComparison.minComparison?.minG ?? 'N/A'}
                 </p>
                 <p>
                   <strong>BFS metric mapping:</strong> h(n)=0, so f(n)=g(n). This node has minimum frontier depth.
                 </p>
                 <p>
-                  <strong>Why this is valid:</strong> BFS always expands the shallowest queued layer first. This node satisfies that rule.
+                  <strong>Why this node matters:</strong> BFS always expands the shallowest queued layer first. Hover any frontier node to compare its depth with the current minimum.
                 </p>
               </>
             )}
@@ -831,27 +1174,6 @@ function App() {
               <p>
                 <strong>Selection rule:</strong> {currentTrace.selectedBecause}
               </p>
-              <p>
-                <strong>Proof checks:</strong>{' '}
-              </p>
-              <div className="proof-check-list">
-                {Object.entries(currentTrace.proofChecks || {}).map(([key, value]) => {
-                  const info = PROOF_CHECK_INFO[key] || {
-                    label: key,
-                    description: 'This condition verifies a formal rule for the current expansion.',
-                  };
-
-                  return (
-                    <div key={key} className="proof-check-item">
-                      <p className={value ? 'proof-check pass' : 'proof-check fail'}>
-                        <strong>{info.label}:</strong> {value ? 'Yes' : 'No'}
-                      </p>
-                      <p className="proof-check-description">{info.description}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
               <p>
                 <strong>Neighbor attempts:</strong> {(currentTrace.attempts || []).length}
               </p>
