@@ -29,6 +29,8 @@ const INITIAL_SCORE_STATE = {
   totalScore: 0,
   questionsAnswered: 0,
   correctAnswers: 0,
+  totalAttempts: 0,
+  totalAccuracyScore: 0,
   totalResponseTime: 0,
   lastQuestionScore: 0,
   lastAccuracy: 0,
@@ -226,6 +228,8 @@ function App() {
             totalScore: prev.totalScore + scoring.questionScore,
             questionsAnswered: prev.questionsAnswered + 1,
             correctAnswers: prev.correctAnswers + 1,
+            totalAttempts: prev.totalAttempts + attemptsUsed,
+            totalAccuracyScore: prev.totalAccuracyScore + scoring.accuracy,
             totalResponseTime: prev.totalResponseTime + scoring.responseSeconds,
             lastQuestionScore: scoring.questionScore,
             lastAccuracy: scoring.accuracy,
@@ -938,6 +942,14 @@ function App() {
   const hoveredFrontierEquation = hoveredFrontierNode
     ? `f(n)=g(n)+h(n)=${hoveredFrontierNode.g}+${hoveredFrontierNode.h}=${hoveredFrontierNode.f}`
     : '';
+  const averageTryAccuracy =
+    scoreState.questionsAnswered > 0
+      ? scoreState.totalAccuracyScore / scoreState.questionsAnswered
+      : 0;
+  const averageTriesPerQuestion =
+    scoreState.questionsAnswered > 0
+      ? scoreState.totalAttempts / scoreState.questionsAnswered
+      : 0;
 
   // ── render ───────────────────────────────────────────────
   return (
@@ -1009,34 +1021,29 @@ function App() {
       </div>
 
       {isQuizMode && (
-        <section className="score-panel" aria-label="Gamification score">
-          <h2>Gamification Score</h2>
-          <p>
-            Correct choices are rewarded most. Faster responses provide a smaller bonus.
-          </p>
-          <div className="score-grid">
-            <div className="score-metric">
-              <span className="score-label">Total score</span>
-              <strong>{scoreState.totalScore}</strong>
-            </div>
-            <div className="score-metric">
-              <span className="score-label">Questions answered</span>
-              <strong>{scoreState.questionsAnswered}</strong>
-            </div>
-            <div className="score-metric">
-              <span className="score-label">Correct answers</span>
-              <strong>{scoreState.correctAnswers}</strong>
-            </div>
-            <div className="score-metric">
-              <span className="score-label">Average response time</span>
-              <strong>
-                {scoreState.questionsAnswered > 0
-                  ? `${(scoreState.totalResponseTime / scoreState.questionsAnswered).toFixed(2)}s`
-                  : '—'}
-              </strong>
-            </div>
+        <div className="game-hud" aria-label="Gamification score">
+          <div className="hud-row">
+            <span className="hud-icon">❤️</span>
+            <span className="hud-label">TRIES AVG</span>
+            <span className="hud-value">
+              {scoreState.questionsAnswered > 0 ? averageTriesPerQuestion.toFixed(1) : '-.-'}
+            </span>
           </div>
-        </section>
+          <div className="hud-row">
+            <span className="hud-icon">⭐</span>
+            <span className="hud-label">SCORE</span>
+            <span className="hud-value">
+              {scoreState.totalScore.toString().padStart(6, '0')}
+            </span>
+          </div>
+          <div className="hud-row">
+            <span className="hud-icon">🎯</span>
+            <span className="hud-label">ACCURACY</span>
+            <span className="hud-value">
+              {scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '--%'}
+            </span>
+          </div>
+        </div>
       )}
 
       {quizState.active && (
@@ -1046,7 +1053,7 @@ function App() {
             <span>Total score: <strong>{scoreState.totalScore}</strong></span>
             <span>Answered: <strong>{scoreState.questionsAnswered}</strong></span>
             <span>
-              Accuracy: <strong>{scoreState.questionsAnswered > 0 ? `${Math.round((scoreState.correctAnswers / scoreState.questionsAnswered) * 100)}%` : '—'}</strong>
+              Accuracy: <strong>{scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '—'}</strong>
             </span>
           </div>
           {quizState.scoreBreakdown && (
@@ -1100,8 +1107,9 @@ function App() {
           )}
 
           {!isRaceMode && isPaused && pausedComparison && hoveredFrontierNode && (
-            <section className="node-proof-hover-panel" aria-live="polite">
-              <div className="node-proof-card">
+            <section className="node-proof-hover-panel formal-trace-panel" aria-live="polite">
+              <h2>Hovered Node Trace</h2>
+              <div className="trace-card">
                 <p>
                   <strong>Hovered node:</strong> ({hoveredFrontierNode.row}, {hoveredFrontierNode.col})
                 </p>

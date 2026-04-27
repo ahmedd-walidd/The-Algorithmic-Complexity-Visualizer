@@ -7,9 +7,11 @@
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   padding: 0.6rem 1rem;
-  background-color: #16213e;
-  border-radius: 12px;
-  border: 1px solid #1a1a4e;
+  background-color: rgba(15, 30, 48, 0.85);
+  border: 4px solid #facc15;
+  border-radius: 8px;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 4px 10px rgba(0,0,0,0.5);
+  font-family: 'Courier New', Courier, monospace;
 }
 
 .control-group {
@@ -21,51 +23,70 @@
 /* ── buttons ───────────────────────────────────────────── */
 .control-panel button {
   padding: 0.5rem 1rem;
-  border: 1px solid #2a2a5e;
-  border-radius: 6px;
-  background-color: #0f3460;
-  color: #e0e0e0;
-  font-size: 0.85rem;
+  border: 2px solid #5a5a5a;
+  border-bottom-width: 4px;
+  border-radius: 4px;
+  background-color: #213550;
+  color: #fff;
+  font-size: 0.95rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
   white-space: nowrap;
 }
 
 .control-panel button:hover:not(:disabled) {
-  background-color: #1a5276;
-  border-color: #4a90d9;
+  background-color: #2b4970;
+  border-color: #9fb9e8;
+  transform: translateY(-2px);
+}
+
+.control-panel button:active:not(:disabled) {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
 }
 
 .control-panel button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  filter: grayscale(100%);
 }
 
 /* ── select ────────────────────────────────────────────── */
 .control-panel select {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #2a2a5e;
-  border-radius: 6px;
-  background-color: #0f3460;
-  color: #e0e0e0;
-  font-size: 0.85rem;
+  border: 2px solid #5a5a5a;
+  border-bottom-width: 4px;
+  border-radius: 4px;
+  background-color: #213550;
+  color: #fff;
+  font-size: 0.95rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
   cursor: pointer;
 }
 
 /* ── race toggle ───────────────────────────────────────── */
-.race-toggle {
+.race-toggle, .quiz-toggle {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  color: #e0e0e0;
-  font-size: 0.85rem;
+  color: #facc15;
+  font-size: 0.95rem;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.race-toggle input {
+.race-toggle input, .quiz-toggle input {
   cursor: pointer;
   accent-color: #e94560;
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 /* ── speed buttons ─────────────────────────────────────── */
@@ -91,13 +112,21 @@
 /* ── visualize / start-race button ─────────────────────── */
 .visualize-btn {
   background-color: #e94560 !important;
-  border-color: #e94560 !important;
+  border-color: #922032 !important;
   color: #ffffff !important;
-  font-weight: 600;
+  font-weight: 800 !important;
   padding: 0.6rem 1.5rem !important;
-  font-size: 0.95rem !important;
+  font-size: 1.1rem !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .visualize-btn:hover:not(:disabled) {
-  background-color: #c0392b !important;
+  background-color: #ff5c77 !important;
+  transform: translateY(-2px);
+}
+
+.visualize-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  border-bottom-width: 2px !important;
 }

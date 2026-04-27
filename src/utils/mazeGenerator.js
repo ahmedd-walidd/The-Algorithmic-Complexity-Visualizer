@@ -66,10 +66,10 @@ function carveThinMaze(grid, row, col) {
     const newCol = col + dc;
 
     if (
-      newRow > 0 &&
-      newRow < ROWS - 1 &&
-      newCol > 0 &&
-      newCol < COLS - 1 &&
+      newRow >= 0 &&
+      newRow < ROWS &&
+      newCol >= 0 &&
+      newCol < COLS &&
       grid[newRow][newCol].isWall
     ) {
       grid[row + dr / 2][col + dc / 2].isWall = false;
@@ -80,15 +80,15 @@ function carveThinMaze(grid, row, col) {
 
 // Open additional wall cells where both sides already have passages.
 function addLoops(grid, probability = 0.1) {
-  for (let row = 1; row < ROWS - 1; row++) {
-    for (let col = 1; col < COLS - 1; col++) {
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
       if (!grid[row][col].isWall) continue;
       if (Math.random() > probability) continue;
 
-      const openLeft = !grid[row][col - 1].isWall;
-      const openRight = !grid[row][col + 1].isWall;
-      const openUp = !grid[row - 1][col].isWall;
-      const openDown = !grid[row + 1][col].isWall;
+      const openLeft = col > 0 && !grid[row][col - 1].isWall;
+      const openRight = col < COLS - 1 && !grid[row][col + 1].isWall;
+      const openUp = row > 0 && !grid[row - 1][col].isWall;
+      const openDown = row < ROWS - 1 && !grid[row + 1][col].isWall;
 
       if ((openLeft && openRight) || (openUp && openDown)) {
         grid[row][col].isWall = false;
@@ -99,8 +99,8 @@ function addLoops(grid, probability = 0.1) {
 
 // Create wider (2+ cell) corridors so mazes are not always 1-cell width.
 function widenPassages(grid, probability = 0.18) {
-  for (let row = 1; row < ROWS - 1; row++) {
-    for (let col = 1; col < COLS - 1; col++) {
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
       if (grid[row][col].isWall) continue;
       if (Math.random() > probability) continue;
 
@@ -115,7 +115,7 @@ function widenPassages(grid, probability = 0.18) {
         const nr = row + dr;
         const nc = col + dc;
 
-        if (nr <= 0 || nr >= ROWS - 1 || nc <= 0 || nc >= COLS - 1) continue;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
         if (!grid[nr][nc].isWall) continue;
 
         grid[nr][nc].isWall = false;
@@ -124,7 +124,7 @@ function widenPassages(grid, probability = 0.18) {
         if (Math.random() < 0.28) {
           const rr = nr + dr;
           const cc = nc + dc;
-          if (rr > 0 && rr < ROWS - 1 && cc > 0 && cc < COLS - 1) {
+          if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) {
             grid[rr][cc].isWall = false;
           }
         }
@@ -140,15 +140,15 @@ function carveRooms(grid, attempts, minW, maxW, minH, maxH) {
     const roomWidth = randInt(minW, maxW);
     const roomHeight = randInt(minH, maxH);
 
-    const maxStartRow = Math.max(1, ROWS - roomHeight - 2);
-    const maxStartCol = Math.max(1, COLS - roomWidth - 2);
+    const maxStartRow = Math.max(0, ROWS - roomHeight);
+    const maxStartCol = Math.max(0, COLS - roomWidth);
 
-    const startRow = randInt(1, maxStartRow);
-    const startCol = randInt(1, maxStartCol);
+    const startRow = randInt(0, maxStartRow);
+    const startCol = randInt(0, maxStartCol);
 
     for (let r = startRow; r < startRow + roomHeight; r++) {
       for (let c = startCol; c < startCol + roomWidth; c++) {
-        if (r > 0 && r < ROWS - 1 && c > 0 && c < COLS - 1) {
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
           grid[r][c].isWall = false;
         }
       }
@@ -176,7 +176,7 @@ function ensureConnected(grid, row, col) {
   for (const [dr, dc] of dirs) {
     const nr = row + dr;
     const nc = col + dc;
-    if (nr > 0 && nr < ROWS - 1 && nc > 0 && nc < COLS - 1) {
+    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
       grid[nr][nc].isWall = false;
       return;
     }
