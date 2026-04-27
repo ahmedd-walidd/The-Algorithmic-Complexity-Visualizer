@@ -1161,26 +1161,39 @@ function App() {
       <div className="main-layout">
         <div className="visualizer-container">
           {isRaceMode ? (
-            <div className="race-container">
-              <Grid
-                grid={grid}
-                onMouseDown={handleMouseDown}
-                onMouseEnter={handleMouseEnter}
-                onMouseUp={handleMouseUp}
-                prefix="bfs-"
-                label="BFS"
-                cellSize={RACE_CELL}
-              />
-              <Grid
-                grid={grid}
-                onMouseDown={handleMouseDown}
-                onMouseEnter={handleMouseEnter}
-                onMouseUp={handleMouseUp}
-                prefix="astar-"
-                label="A*"
-                cellSize={RACE_CELL}
-              />
-            </div>
+            <>
+              <div className="race-container">
+                <Grid
+                  grid={grid}
+                  onMouseDown={handleMouseDown}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseUp={handleMouseUp}
+                  prefix="bfs-"
+                  label="BFS"
+                  cellSize={RACE_CELL}
+                />
+                <Grid
+                  grid={grid}
+                  onMouseDown={handleMouseDown}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseUp={handleMouseUp}
+                  prefix="astar-"
+                  label="A*"
+                  cellSize={RACE_CELL}
+                />
+              </div>
+              {stats && (
+                <div className="stats-container">
+                  {Object.entries(stats).map(([key, { visited, path }]) => (
+                    <div key={key} className="stat-card">
+                      <h3>{key === 'bfs' ? 'BFS' : 'A*'}</h3>
+                      <p>Visited Nodes: <span className="stat-value">{visited}</span></p>
+                      <p>Path Length: <span className="stat-value">{path > 0 ? path : '—'}</span></p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
             <Grid
               grid={grid}

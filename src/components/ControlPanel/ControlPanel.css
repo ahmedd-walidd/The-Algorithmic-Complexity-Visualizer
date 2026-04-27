@@ -54,7 +54,7 @@
   filter: grayscale(100%);
 }
 
-/* ── select ────────────────────────────────────────────── */
+/* ── select / algorithms ────────────────────────────────────────────── */
 .control-panel select {
   padding: 0.5rem 0.75rem;
   border: 2px solid #5a5a5a;
@@ -67,6 +67,18 @@
   font-weight: bold;
   text-shadow: 1px 1px 0 #000;
   cursor: pointer;
+}
+
+.algorithm-buttons {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.algorithm-btn.active {
+  background-color: #facc15 !important;
+  border-color: #dcb313 !important;
+  color: #0f1e30 !important;
+  text-shadow: none !important;
 }
 
 /* ── race toggle ───────────────────────────────────────── */

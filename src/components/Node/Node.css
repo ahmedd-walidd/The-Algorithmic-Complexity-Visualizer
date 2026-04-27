@@ -17,8 +17,8 @@
 }
 
 .node-wall {
-  background-color: #4a90d9; /* Retro blue */
-  border-color: #2563eb;
+  background-color: #64748b; /* Retro slate */
+  border-color: #475569;
   animation: wallPop 0.3s ease-out;
 }
 

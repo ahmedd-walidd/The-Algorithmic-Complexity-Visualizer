@@ -31,14 +31,22 @@ function ControlPanel({
       {/* ── algorithm choice + race toggle ── */}
       <div className="control-group">
         {!isRaceMode && (
-          <select
-            value={algorithm}
-            onChange={(e) => onAlgorithmChange(e.target.value)}
-            disabled={isVisualizing}
-          >
-            <option value="bfs">BFS</option>
-            <option value="astar">A*</option>
-          </select>
+          <div className="algorithm-buttons">
+            <button
+              className={`algorithm-btn ${algorithm === 'bfs' ? 'active' : ''}`}
+              onClick={() => onAlgorithmChange('bfs')}
+              disabled={isVisualizing}
+            >
+              BFS
+            </button>
+            <button
+              className={`algorithm-btn ${algorithm === 'astar' ? 'active' : ''}`}
+              onClick={() => onAlgorithmChange('astar')}
+              disabled={isVisualizing}
+            >
+              A*
+            </button>
+          </div>
         )}
 
         <label className="race-toggle">
