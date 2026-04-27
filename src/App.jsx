@@ -50,6 +50,7 @@ function App() {
   const timeoutsRef = useRef([]);
 
   const [isQuizMode, setIsQuizMode] = useState(false);
+  const [scorePopup, setScorePopup] = useState(null);
   const [quizState, setQuizState] = useState({
     active: false,
     candidates: [],
@@ -244,10 +245,11 @@ function App() {
             feedbackType: 'correct',
             attemptCount: attemptsUsed,
             scoreBreakdown: scoring,
-            message: `${detailedMessage} Score +${scoring.questionScore} (accuracy ${scoring.accuracy.toFixed(
-              2
-            )}, response ${scoring.responseSeconds.toFixed(2)}s).`,
+            message: detailedMessage,
           }));
+
+          setScorePopup(scoring);
+          setTimeout(() => setScorePopup(null), 3000);
         } else {
             // Wrong answer
             const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
@@ -288,11 +290,32 @@ function App() {
 
   const handleMouseEnter = useCallback(
     (row, col) => {
-      if (isPaused && pausedComparison) {
-        const hovered = (pausedComparison.frontierNodes || []).find(
-          (n) => n.row === row && n.col === col
-        );
-        setHoveredFrontierNode(hovered || null);
+      const hoverSource = (() => {
+        if (isRaceMode) return null;
+
+        if (isPaused && pausedComparison) {
+          const frontierByKey = {};
+          (pausedComparison.frontierNodes || []).forEach((n) => {
+            frontierByKey[`${n.row}-${n.col}`] = n;
+          });
+
+          return {
+            frontierByKey,
+          };
+        }
+
+        if (quizState.active && quizState.frontierByKey) {
+          return {
+            frontierByKey: quizState.frontierByKey,
+          };
+        }
+
+        return null;
+      })();
+
+      if (hoverSource?.frontierByKey) {
+        const hovered = hoverSource.frontierByKey[`${row}-${col}`] || null;
+        setHoveredFrontierNode(hovered);
       } else if (hoveredFrontierNode) {
         setHoveredFrontierNode(null);
       }
@@ -307,7 +330,15 @@ function App() {
         return next;
       });
     },
-    [isMousePressed, isVisualizing, isPaused, pausedComparison, hoveredFrontierNode]
+    [
+      isMousePressed,
+      isVisualizing,
+      isPaused,
+      pausedComparison,
+      hoveredFrontierNode,
+      isRaceMode,
+      quizState,
+    ]
   );
 
   const handleMouseUp = useCallback(() => setIsMousePressed(false), []);
@@ -942,6 +973,61 @@ function App() {
   const hoveredFrontierEquation = hoveredFrontierNode
     ? `f(n)=g(n)+h(n)=${hoveredFrontierNode.g}+${hoveredFrontierNode.h}=${hoveredFrontierNode.f}`
     : '';
+  const activeHoverComparison = (() => {
+    if (isRaceMode) return null;
+
+    if (isPaused && pausedComparison) {
+      return {
+        algorithm: pausedComparison.algorithm,
+        minComparison: pausedComparison.minComparison,
+      };
+    }
+
+    if (quizState.active && quizState.ruleMeta) {
+      return {
+        algorithm: quizState.ruleMeta.algorithm,
+        minComparison:
+          quizState.ruleMeta.algorithm === 'astar'
+            ? {
+                minF: quizState.ruleMeta.minF,
+                minHAmongMinF: quizState.ruleMeta.minHAmongMinF,
+              }
+            : {
+                minG: quizState.ruleMeta.minG,
+              },
+      };
+    }
+
+    return null;
+  })();
+
+  const hoveredNodeDecision = (() => {
+    if (!hoveredFrontierNode || !activeHoverComparison) return '';
+
+    if (activeHoverComparison.algorithm === 'astar') {
+      const minF = activeHoverComparison.minComparison?.minF;
+      const minHAmongMinF = activeHoverComparison.minComparison?.minHAmongMinF;
+      const hasMinF = hoveredFrontierNode.f === minF;
+      const hasBestTieBreak = hoveredFrontierNode.h === minHAmongMinF;
+
+      if (hasMinF && hasBestTieBreak) {
+        return 'Would be chosen next: minimum frontier f and minimum tie-break h.';
+      }
+
+      if (!hasMinF) {
+        return `Not chosen yet: f=${hoveredFrontierNode.f} is larger than frontier minimum f=${minF}.`;
+      }
+
+      return `Not chosen yet: ties on f=${hoveredFrontierNode.f}, but h=${hoveredFrontierNode.h} is larger than minimum tie-break h=${minHAmongMinF}.`;
+    }
+
+    const minG = activeHoverComparison.minComparison?.minG;
+    if (hoveredFrontierNode.g === minG) {
+      return 'Would be chosen next: minimum frontier depth g (BFS queue rule).';
+    }
+    return `Not chosen yet: depth g=${hoveredFrontierNode.g} is larger than frontier minimum g=${minG}.`;
+  })();
+
   const averageTryAccuracy =
     scoreState.questionsAnswered > 0
       ? scoreState.totalAccuracyScore / scoreState.questionsAnswered
@@ -1022,26 +1108,36 @@ function App() {
 
       {isQuizMode && (
         <div className="game-hud" aria-label="Gamification score">
-          <div className="hud-row">
+          <div className="hud-row" style={{ position: 'relative' }}>
             <span className="hud-icon">❤️</span>
             <span className="hud-label">TRIES AVG</span>
             <span className="hud-value">
               {scoreState.questionsAnswered > 0 ? averageTriesPerQuestion.toFixed(1) : '-.-'}
             </span>
           </div>
-          <div className="hud-row">
+          <div className="hud-row" style={{ position: 'relative' }}>
             <span className="hud-icon">⭐</span>
             <span className="hud-label">SCORE</span>
             <span className="hud-value">
               {scoreState.totalScore.toString().padStart(6, '0')}
             </span>
+            {scorePopup && (
+              <span className="score-popup-floating">
+                +{scorePopup.questionScore}
+              </span>
+            )}
           </div>
-          <div className="hud-row">
+          <div className="hud-row" style={{ position: 'relative' }}>
             <span className="hud-icon">🎯</span>
             <span className="hud-label">ACCURACY</span>
             <span className="hud-value">
               {scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '--%'}
             </span>
+            {scorePopup && (
+              <span className="score-popup-floating" style={{ color: '#6cb6ff' }}>
+                {Math.round(scorePopup.accuracy * 100)}% (in {scorePopup.responseSeconds.toFixed(1)}s)
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -1049,18 +1145,6 @@ function App() {
       {quizState.active && (
         <div className="quiz-overlay">
           <h2>{isPaused ? 'Paused — ' : ''}{quizState.message}</h2>
-          <div className="quiz-score-mini">
-            <span>Total score: <strong>{scoreState.totalScore}</strong></span>
-            <span>Answered: <strong>{scoreState.questionsAnswered}</strong></span>
-            <span>
-              Accuracy: <strong>{scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '—'}</strong>
-            </span>
-          </div>
-          {quizState.scoreBreakdown && (
-            <p className="quiz-score-breakdown">
-              Question score: <strong>{quizState.scoreBreakdown.questionScore}</strong> · Accuracy <strong>{quizState.scoreBreakdown.accuracy.toFixed(2)}</strong> · Response <strong>{quizState.scoreBreakdown.responseSeconds.toFixed(2)}s</strong>
-            </p>
-          )}
           {quizState.awaitingContinue && (
             <button
               className="quiz-continue-btn"
@@ -1106,7 +1190,7 @@ function App() {
             />
           )}
 
-          {!isRaceMode && isPaused && pausedComparison && hoveredFrontierNode && (
+          {!isRaceMode && activeHoverComparison && hoveredFrontierNode && (
             <section className="node-proof-hover-panel formal-trace-panel" aria-live="polite">
               <h2>Hovered Node Trace</h2>
               <div className="trace-card">
@@ -1116,20 +1200,23 @@ function App() {
                 <p>
                   <strong>Equation for this node:</strong> {hoveredFrontierEquation}
                 </p>
+                <p>
+                  <strong>Decision:</strong> {hoveredNodeDecision}
+                </p>
 
-                {pausedComparison.algorithm === 'astar' ? (
+                {activeHoverComparison.algorithm === 'astar' ? (
                   <>
                     <p>
-                      <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredFrontierNode.f}, minimum f={pausedComparison.minComparison?.minF ?? 'N/A'}
+                      <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredFrontierNode.f}, minimum f={activeHoverComparison.minComparison?.minF ?? 'N/A'}
                     </p>
                     <p>
-                      <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={pausedComparison.minComparison?.minHAmongMinF ?? 'N/A'}
+                      <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={activeHoverComparison.minComparison?.minHAmongMinF ?? 'N/A'}
                     </p>
                   </>
                 ) : (
                   <>
                     <p>
-                      <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredFrontierNode.g}, minimum g={pausedComparison.minComparison?.minG ?? 'N/A'}
+                      <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredFrontierNode.g}, minimum g={activeHoverComparison.minComparison?.minG ?? 'N/A'}
                     </p>
                   </>
                 )}
