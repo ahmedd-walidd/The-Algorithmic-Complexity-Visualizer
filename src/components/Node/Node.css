@@ -1,22 +1,24 @@
 .node {
   width: var(--cell-size, 25px);
   height: var(--cell-size, 25px);
-  background-color: #ffffff;
-  border: 1px solid #d0d0d0;
+  background-color: rgba(15, 30, 48, 0.85); /* Match HUD background */
+  border: 1px solid rgba(102, 153, 255, 0.22); /* Match score-metric border */
   box-sizing: border-box;
 }
 
 .node-start {
-  background-color: #4caf50;
+  background-color: #facc15; /* Retro yellow */
+  border-color: #eab308;
 }
 
 .node-end {
-  background-color: #f44336;
+  background-color: #e94560; /* Retro red */
+  border-color: #be123c;
 }
 
 .node-wall {
-  background-color: #0d1b2a;
-  border-color: #0d1b2a;
+  background-color: #4a90d9; /* Retro blue */
+  border-color: #2563eb;
   animation: wallPop 0.3s ease-out;
 }
 
