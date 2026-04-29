@@ -3,9 +3,10 @@ export function astar(grid, startNode, endNode, options = {}) {
   const visitedNodesInOrder = [];
   const openSet = [];
   const formalTraceByIndex = [];
+  const goalDistanceMap = computeGoalDistanceMap(grid, endNode);
 
   startNode.distance = 0;
-  startNode.heuristic = manhattanDistance(startNode, endNode);
+  startNode.heuristic = goalDistanceMap[startNode.row][startNode.col];
   startNode.totalDistance = startNode.heuristic;
   openSet.push(startNode);
 
@@ -73,7 +74,7 @@ export function astar(grid, startNode, endNode, options = {}) {
       const previousG = neighbor.distance;
       const previousH = Number.isFinite(neighbor.heuristic)
         ? neighbor.heuristic
-        : manhattanDistance(neighbor, endNode);
+        : goalDistanceMap[neighbor.row][neighbor.col];
       const previousF = Number.isFinite(neighbor.totalDistance)
         ? neighbor.totalDistance
         : previousG + previousH;
@@ -100,7 +101,7 @@ export function astar(grid, startNode, endNode, options = {}) {
 
       if (tentativeG < neighbor.distance) {
         neighbor.distance = tentativeG;
-        neighbor.heuristic = manhattanDistance(neighbor, endNode);
+        neighbor.heuristic = goalDistanceMap[neighbor.row][neighbor.col];
         neighbor.totalDistance = neighbor.distance + neighbor.heuristic;
         neighbor.previousNode = currentNode;
 
@@ -201,8 +202,32 @@ export function astar(grid, startNode, endNode, options = {}) {
   return { visitedNodesInOrder, predictionOptionsByIndex, formalTraceByIndex };
 }
 
-function manhattanDistance(nodeA, nodeB) {
-  return Math.abs(nodeA.row - nodeB.row) + Math.abs(nodeA.col - nodeB.col);
+function computeGoalDistanceMap(grid, endNode) {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const distances = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+  const queue = [];
+
+  if (endNode.isWall) return distances;
+
+  distances[endNode.row][endNode.col] = 0;
+  queue.push(endNode);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const currentDistance = distances[current.row][current.col];
+    const neighbors = getDirectionalNeighbors(current, grid);
+
+    for (const neighbor of neighbors) {
+      if (neighbor.isWall) continue;
+      if (Number.isFinite(distances[neighbor.row][neighbor.col])) continue;
+
+      distances[neighbor.row][neighbor.col] = currentDistance + 1;
+      queue.push(neighbor);
+    }
+  }
+
+  return distances;
 }
 
 function getDirectionalNeighbors(node, grid) {

@@ -10,27 +10,11 @@ function ControlPanel({
   onRaceModeToggle,
   isQuizMode,
   onQuizModeToggle,
+  isObstacleMode,
+  onObstacleModeToggle,
   onVisualize,
-  speed,
-  onSpeedChange,
   isVisualizing,
-  simulationPhase,
 }) {
-  const getPhaseDisplay = () => {
-    switch (simulationPhase) {
-      case 'idle':
-        return 'Idle';
-      case 'visited':
-        return 'Traversing...';
-      case 'path':
-        return 'Showing Path...';
-      case 'done':
-        return 'Done';
-      default:
-        return 'Idle';
-    }
-  };
-
   return (
     <div className="control-panel">
       {/* ── maze / board actions ── */}
@@ -43,6 +27,13 @@ function ControlPanel({
         </button>
         <button onClick={onClearPath} disabled={isVisualizing}>
           Clear Path
+        </button>
+        <button
+          className={`obstacle-mode-btn ${isObstacleMode ? 'active' : ''}`}
+          onClick={onObstacleModeToggle}
+          disabled={isVisualizing}
+        >
+          {isObstacleMode ? 'Exit Obstacle Mode' : 'Obstacle Mode'}
         </button>
       </div>
 
@@ -92,9 +83,6 @@ function ControlPanel({
 
       {/* ── go button ── */}
       <div className="control-group">
-        <div className={`phase-indicator phase-${simulationPhase}`}>
-          {getPhaseDisplay()}
-        </div>
         <button
           className="visualize-btn"
           onClick={onVisualize}

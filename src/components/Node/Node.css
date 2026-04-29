@@ -4,6 +4,17 @@
   background-color: rgba(15, 30, 48, 0.85); /* Match HUD background */
   border: 1px solid rgba(102, 153, 255, 0.22); /* Match score-metric border */
   box-sizing: border-box;
+  cursor: default;
+  user-select: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.app.obstacle-mode .node {
+  cursor: crosshair;
 }
 
 .node-start {
@@ -19,12 +30,13 @@
 .node-wall {
   background-color: #64748b; /* Retro slate */
   border-color: #475569;
-  animation: wallPop 0.3s ease-out;
+  animation: wallPop 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes wallPop {
   0% {
-    transform: scale(0.6);
+    transform: scale(0.88);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
   100% {
     transform: scale(1);

@@ -12,9 +12,10 @@ function Node({ node, onMouseDown, onMouseEnter, onMouseUp, prefix = '' }) {
     <div
       id={`${prefix}node-${row}-${col}`}
       className={`node ${extraClass}`}
-      onMouseDown={() => onMouseDown(row, col)}
+      onMouseDown={(event) => onMouseDown(row, col, event)}
       onMouseEnter={() => onMouseEnter(row, col)}
       onMouseUp={() => onMouseUp()}
+      onContextMenu={(event) => event.preventDefault()}
     />
   );
 }

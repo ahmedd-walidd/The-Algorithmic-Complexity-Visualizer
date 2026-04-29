@@ -71,6 +71,11 @@ const GAMIFICATION_WEIGHTS = {
   maxQuestionScore: 100,
 };
 
+const DEFAULT_SETTINGS = {
+  speed: 'medium',
+  quizPromptInterval: 15,
+};
+
 const INITIAL_SCORE_STATE = {
   totalScore: 0,
   questionsAnswered: 0,
@@ -106,13 +111,19 @@ function App() {
   // ── state ────────────────────────────────────────────────
   const [grid, setGrid] = useState(() => createGrid());
   const [isMousePressed, setIsMousePressed] = useState(false);
+  const [isObstacleMode, setIsObstacleMode] = useState(false);
   const [algorithm, setAlgorithm] = useState('bfs');
   const [isRaceMode, setIsRaceMode] = useState(false);
-  const [speed, setSpeed] = useState('medium');
+  const [speed, setSpeed] = useState(DEFAULT_SETTINGS.speed);
+  const [quizPromptInterval, setQuizPromptInterval] = useState(DEFAULT_SETTINGS.quizPromptInterval);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState(DEFAULT_SETTINGS);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
   const [isVisualizing, setIsVisualizing] = useState(false);
   const [simulationPhase, setSimulationPhase] = useState('idle');
   const [stats, setStats] = useState(null);
   const timeoutsRef = useRef([]);
+  const obstacleDragModeRef = useRef(null);
 
   // ── responsive cell size ─────────────────────────────────
   const responsiveCellSize = useResponsiveCellSize(isRaceMode);
@@ -136,6 +147,21 @@ function App() {
   const [pausedComparison, setPausedComparison] = useState(null);
   const [hoveredFrontierNode, setHoveredFrontierNode] = useState(null);
 
+  const getSimulationPhaseDisplay = useCallback(() => {
+    switch (simulationPhase) {
+      case 'idle':
+        return 'Idle';
+      case 'visited':
+        return 'Traversing...';
+      case 'path':
+        return 'Showing Path...';
+      case 'done':
+        return 'Done';
+      default:
+        return 'Idle';
+    }
+  }, [simulationPhase]);
+
   const isPausedRef = useRef(false);
   const isQuizModeRef = useRef(false);
   const quizStateRef = useRef(quizState);
@@ -158,7 +184,7 @@ function App() {
     onStep: null,
     visitedIndex: 0,
     pathIndex: 0,
-    pauseInterval: 15,
+    pauseInterval: DEFAULT_SETTINGS.quizPromptInterval,
     stepFunc: null,
   });
 
@@ -203,6 +229,20 @@ function App() {
     }
 
     return `Correct: this node has minimum frontier depth g=${ruleMeta.minG}. In BFS, h=0 so f=g, therefore it is a valid next expansion. Press Continue.`;
+  }, []);
+
+  const applyObstacleState = useCallback((row, col, isWall) => {
+    if (row === START_ROW && col === START_COL) return;
+    if (row === END_ROW && col === END_COL) return;
+
+    setGrid((prev) => {
+      const currentNode = prev[row]?.[col];
+      if (!currentNode || currentNode.isWall === isWall) return prev;
+
+      const next = prev.map((r) => r.map((n) => ({ ...n })));
+      next[row][col] = { ...next[row][col], isWall };
+      return next;
+    });
   }, []);
 
   const showPositiveGamifiedText = useCallback((row, col, text) => {
@@ -266,9 +306,71 @@ function App() {
     formalTraceRef.current = formalTrace;
   }, [formalTrace]);
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+        return;
+      }
+
+      if (isLegendOpen) {
+        setIsLegendOpen(false);
+        return;
+      }
+
+      setIsObstacleMode(false);
+      setIsMousePressed(false);
+      obstacleDragModeRef.current = null;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSettingsOpen, isLegendOpen]);
+
+  const openSettings = useCallback(() => {
+    setIsLegendOpen(false);
+    setSettingsDraft({
+      speed,
+      quizPromptInterval,
+    });
+    setIsSettingsOpen(true);
+  }, [speed, quizPromptInterval]);
+
+  const closeSettings = useCallback(() => {
+    setIsSettingsOpen(false);
+    setSettingsDraft({
+      speed,
+      quizPromptInterval,
+    });
+  }, [speed, quizPromptInterval]);
+
+  const openLegend = useCallback(() => {
+    setIsSettingsOpen(false);
+    setIsLegendOpen(true);
+  }, []);
+
+  const closeLegend = useCallback(() => {
+    setIsLegendOpen(false);
+  }, []);
+
+  const saveSettings = useCallback(() => {
+    setSpeed(settingsDraft.speed);
+    setQuizPromptInterval(settingsDraft.quizPromptInterval);
+    runStateRef.current.pauseInterval = settingsDraft.quizPromptInterval;
+    setIsSettingsOpen(false);
+  }, [settingsDraft]);
+
+  const resetSettingsToDefaults = useCallback(() => {
+    setSettingsDraft(DEFAULT_SETTINGS);
+  }, []);
+
   // ── wall drawing / quiz clicks ─────────────────────────
   const handleMouseDown = useCallback(
-    (row, col) => {
+    (row, col, event) => {
+      if (event?.button !== undefined && event.button !== 0) return;
+
       // Quiz interaction
       if (quizState.active) {
         if (isPaused) {
@@ -368,23 +470,28 @@ function App() {
       }
 
       if (isVisualizing) return;
+      if (!isObstacleMode) return;
       if (row === START_ROW && col === START_COL) return;
       if (row === END_ROW && col === END_COL) return;
 
+      const currentNode = grid[row]?.[col];
+      if (!currentNode) return;
+
       setIsMousePressed(true);
-      setGrid((prev) => {
-        const next = prev.map((r) => r.map((n) => ({ ...n })));
-        next[row][col] = { ...next[row][col], isWall: !next[row][col].isWall };
-        return next;
-      });
+      obstacleDragModeRef.current = currentNode.isWall ? 'erase' : 'wall';
+      applyObstacleState(row, col, obstacleDragModeRef.current === 'wall');
     },
     [
       isVisualizing,
       quizState,
       isPaused,
+      grid,
+      isObstacleMode,
       buildWrongPredictionMessage,
       buildCorrectPredictionMessage,
       calculateQuestionScore,
+      showPositiveGamifiedText,
+      applyObstacleState,
     ]
   );
 
@@ -420,15 +527,10 @@ function App() {
         setHoveredFrontierNode(null);
       }
 
-      if (!isMousePressed || isVisualizing) return;
-      if (row === START_ROW && col === START_COL) return;
-      if (row === END_ROW && col === END_COL) return;
+      if (!isMousePressed || isVisualizing || !isObstacleMode) return;
 
-      setGrid((prev) => {
-        const next = prev.map((r) => r.map((n) => ({ ...n })));
-        next[row][col] = { ...next[row][col], isWall: true };
-        return next;
-      });
+      const dragMode = obstacleDragModeRef.current ?? 'wall';
+      applyObstacleState(row, col, dragMode === 'wall');
     },
     [
       isMousePressed,
@@ -438,10 +540,15 @@ function App() {
       hoveredFrontierNode,
       isRaceMode,
       quizState,
+      isObstacleMode,
+      applyObstacleState,
     ]
   );
 
-  const handleMouseUp = useCallback(() => setIsMousePressed(false), []);
+  const handleMouseUp = useCallback(() => {
+    setIsMousePressed(false);
+    obstacleDragModeRef.current = null;
+  }, []);
 
   // ── helpers ──────────────────────────────────────────────
   const clearAllTimeouts = () => {
@@ -541,7 +648,7 @@ function App() {
     });
   }, [clearPreviewPathHighlight]);
 
-  const resetRunState = () => {
+  const resetRunState = useCallback(() => {
     runStateRef.current = {
       phase: 'idle',
       visited: [],
@@ -553,10 +660,10 @@ function App() {
       onStep: null,
       visitedIndex: 0,
       pathIndex: 0,
-      pauseInterval: 15,
+      pauseInterval: quizPromptInterval,
       stepFunc: null,
     };
-  };
+  }, [quizPromptInterval]);
 
   const clearDomClasses = () => {
     ['', 'bfs-', 'astar-'].forEach((prefix) => {
@@ -723,7 +830,7 @@ function App() {
     setHoveredFrontierNode(null);
     setTraceNotice('');
     setSimulationPhase('idle');
-  }, [clearNextChoiceHighlight, resetGamification]);
+  }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
 
   const handleClearBoard = useCallback(() => {
     clearAllTimeouts();
@@ -741,7 +848,7 @@ function App() {
     setPausedComparison(null);
     setHoveredFrontierNode(null);
     setTraceNotice('');
-  }, [clearNextChoiceHighlight, resetGamification]);
+  }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
 
   const handleClearPath = useCallback(() => {
     clearAllTimeouts();
@@ -759,7 +866,7 @@ function App() {
     setPausedComparison(null);
     setHoveredFrontierNode(null);
     setTraceNotice('');
-  }, [clearNextChoiceHighlight, resetGamification]);
+  }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
 
   // ── animation engine ─────────────────────────────────────
   const animateAlgorithm = (visited, path, prefix, ms, optionsByIndex, onDone, onStep) => {
@@ -778,7 +885,7 @@ function App() {
       onStep,
       visitedIndex: 0,
       pathIndex: 0,
-      pauseInterval: 15,
+      pauseInterval: quizPromptInterval,
       stepFunc: null,
     };
 
@@ -824,7 +931,6 @@ function App() {
         ) {
           const { selectable, correct } = run.optionsByIndex[i];
           if (selectable && selectable.length > 0) {
-            const correctSet = new Set((correct || []).map((n) => `${n.row}-${n.col}`));
 
             selectable.forEach((c) => {
               const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
@@ -1045,6 +1151,7 @@ function App() {
     setTraceNotice('');
 
     const ms = SPEED_MS[speed];
+    runStateRef.current.pauseInterval = quizPromptInterval;
 
     if (isRaceMode) {
       /* ── race: run both algorithms on independent copies ── */
@@ -1131,7 +1238,7 @@ function App() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grid, algorithm, isRaceMode, speed, isVisualizing, isQuizMode, resetGamification]);
+  }, [grid, algorithm, isRaceMode, speed, quizPromptInterval, isVisualizing, isQuizMode, resetGamification]);
 
   const currentTrace =
     activeTraceIndex >= 0 && activeTraceIndex < formalTrace.length
@@ -1226,7 +1333,7 @@ function App() {
     if (activeHoverComparison?.algorithm === 'astar') {
       applyPreviewPathHighlight(hoveredForwardPreviewPath, {
         kind: 'forward',
-        labelMode: 'heuristic',
+        labelMode: 'remaining',
         goalRow: END_ROW,
         goalCol: END_COL,
       });
@@ -1251,8 +1358,37 @@ function App() {
 
   // ── render ───────────────────────────────────────────────
   return (
-    <div className="app" onMouseLeave={handleMouseUp}>
-      <h1>The Algorithmic Complexity Visualizer</h1>
+    <div className={`app${isObstacleMode ? ' obstacle-mode' : ''}`} onMouseLeave={handleMouseUp}>
+      <h1 className="app-title">
+        <span className="app-title-top">The Algorithmic Complexity</span>
+        <span className="app-title-bottom">Visualizer</span>
+      </h1>
+
+      <button
+        type="button"
+        className="settings-fab"
+        onClick={openSettings}
+        aria-haspopup="dialog"
+        aria-expanded={isSettingsOpen}
+        aria-label="Open settings"
+        title="Open settings"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="settings-fab-icon">
+          <path d="M19.14 12.94a7.43 7.43 0 0 0 .05-.94c0-.32-.02-.63-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.25 7.25 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42H9.28a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L1.88 7.84a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2 13.52a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.72a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.02-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        className="legend-fab"
+        onClick={openLegend}
+        aria-haspopup="dialog"
+        aria-expanded={isLegendOpen}
+        aria-label="Open legend"
+        title="Open legend"
+      >
+        ?
+      </button>
 
       <ControlPanel
         onGenerateMaze={handleGenerateMaze}
@@ -1264,60 +1400,181 @@ function App() {
         onRaceModeToggle={() => setIsRaceMode((v) => !v)}
         isQuizMode={isQuizMode}
         onQuizModeToggle={() => setIsQuizMode((v) => !v)}
+        isObstacleMode={isObstacleMode}
+        onObstacleModeToggle={() => setIsObstacleMode((v) => !v)}
         onVisualize={handleVisualize}
-        speed={speed}
-        onSpeedChange={setSpeed}
         isVisualizing={isVisualizing}
-        simulationPhase={simulationPhase}
       />
 
-      <div className="legend-help" aria-label="Legend help">
-        <button
-          type="button"
-          className="legend-trigger"
-          aria-label="Show legend"
-        >
-          ?
-        </button>
-
-        <section className="legend-panel legend-popover" aria-label="Visualizer legend">
-          <h2>Legend</h2>
-          <div className="legend-grid">
-            <div className="legend-item">
-              <span className="legend-swatch swatch-start" />
-              <span>Start node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-end" />
-              <span>Goal node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-wall" />
-              <span>Wall (blocked)</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-unvisited" />
-              <span>Unvisited node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-visited" />
-              <span>Visited during search</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-path" />
-              <span>Shortest path</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-candidate" />
-              <span>Quiz candidate node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-next" />
-              <span>Gold = next mathematically valid choice when paused</span>
-            </div>
-          </div>
-        </section>
+      <div className={`simulation-status simulation-status-${simulationPhase}`} role="status" aria-live="polite">
+        <span className="simulation-status-label">Simulation State</span>
+        <span className="simulation-status-value">{getSimulationPhaseDisplay()}</span>
       </div>
+
+      {isObstacleMode && (
+        <div className="board-tip" role="note" aria-live="polite">
+          Hold left click and drag to paint obstacles. Start on a wall to erase while dragging. Press Esc to exit obstacle mode.
+        </div>
+      )}
+
+      {isSettingsOpen && (
+        <div
+          className="settings-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeSettings();
+            }
+          }}
+        >
+          <section
+            className="settings-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+          >
+            <header className="settings-modal-header">
+              <div>
+                <p className="settings-kicker">Preferences</p>
+                <h2 id="settings-title">Simulation Settings</h2>
+              </div>
+              <button type="button" className="settings-close-btn" onClick={closeSettings}>
+                Close
+              </button>
+            </header>
+
+            <div className="settings-modal-body">
+              <section className="settings-card">
+                <h3>Simulation Speed</h3>
+                <p>Controls how quickly traversal steps are animated.</p>
+                <div className="settings-option-list" role="radiogroup" aria-label="Simulation speed">
+                  {[
+                    { value: 'slow', label: 'Slow', detail: 'Easier to follow' },
+                    { value: 'medium', label: 'Medium', detail: 'Balanced pace' },
+                    { value: 'fast', label: 'Fast', detail: 'Quick runs' },
+                  ].map((option) => (
+                    <label key={option.value} className="settings-option-card">
+                      <input
+                        type="radio"
+                        name="simulation-speed"
+                        value={option.value}
+                        checked={settingsDraft.speed === option.value}
+                        onChange={() => setSettingsDraft((prev) => ({ ...prev, speed: option.value }))}
+                      />
+                      <span>
+                        <strong>{option.label}</strong>
+                        <small>{option.detail}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className="settings-card">
+                <h3>Pause-Prediction cadence</h3>
+                <p>How many algorithm steps pass before a quiz prompt appears.</p>
+                <div className="settings-slider-row">
+                  <input
+                    type="range"
+                    min="5"
+                    max="30"
+                    step="1"
+                    value={settingsDraft.quizPromptInterval}
+                    onChange={(event) =>
+                      setSettingsDraft((prev) => ({
+                        ...prev,
+                        quizPromptInterval: Number(event.target.value),
+                      }))
+                    }
+                  />
+                  <div className="settings-slider-value">
+                    <strong>{settingsDraft.quizPromptInterval}</strong>
+                    <span>steps</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="settings-card settings-card-muted">
+                <h3>Quick actions</h3>
+                <p>Use the defaults if you want the original pacing back.</p>
+                <button type="button" className="settings-secondary-btn" onClick={resetSettingsToDefaults}>
+                  Restore defaults
+                </button>
+              </section>
+            </div>
+
+            <footer className="settings-modal-footer">
+              <button type="button" className="settings-secondary-btn" onClick={closeSettings}>
+                Cancel
+              </button>
+              <button type="button" className="settings-primary-btn" onClick={saveSettings}>
+                Apply Settings
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {isLegendOpen && (
+        <div
+          className="legend-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeLegend();
+            }
+          }}
+        >
+          <section className="legend-modal" role="dialog" aria-modal="true" aria-labelledby="legend-title">
+            <header className="legend-modal-header">
+              <div>
+                <p className="legend-kicker">Reference</p>
+                <h2 id="legend-title">Visualizer Legend</h2>
+              </div>
+              <button type="button" className="legend-close-btn" onClick={closeLegend}>
+                Close
+              </button>
+            </header>
+
+            <div className="legend-modal-body">
+              <div className="legend-grid">
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-start" />
+                  <span>Start node</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-end" />
+                  <span>Goal node</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-wall" />
+                  <span>Obstacle / wall</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-unvisited" />
+                  <span>Unvisited node</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-visited" />
+                  <span>Visited during search</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-path" />
+                  <span>Shortest path</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-candidate" />
+                  <span>Quiz candidate node</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-swatch swatch-next" />
+                  <span>Paused next valid choice</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       {isQuizMode && (
         <div className="game-hud" aria-label="Gamification score">
