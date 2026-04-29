@@ -14,7 +14,53 @@ import {
 import { generateMaze } from './utils/mazeGenerator';
 import { bfs } from './algorithms/bfs';
 import { astar } from './algorithms/astar';
+import { COLS } from './utils/gridHelpers';
 import './App.css';
+
+// Custom hook to calculate responsive cell size based on viewport width
+function useResponsiveCellSize(isRaceMode = false) {
+  const [cellSize, setCellSize] = useState(25);
+
+  useEffect(() => {
+    const calculateCellSize = () => {
+      // Constants (in pixels)
+      const sidePanelWidth = 280;
+      const mainGap = 24; // 1.5rem ≈ 24px
+      const appPadding = 32; // 2rem = 32px
+      const minCellSize = 12;
+      const maxCellSize = 28;
+
+      const vw = window.innerWidth;
+      const availableWidth = vw * 0.95 - appPadding * 2;
+
+      let calculatedSize;
+      if (isRaceMode) {
+        // Two grids side-by-side + gap between them
+        const twoGridsGap = mainGap;
+        const usableWidth = availableWidth - twoGridsGap;
+        calculatedSize = Math.floor(usableWidth / (COLS * 2));
+      } else {
+        // Single grid + side panel
+        const totalSidePanelWithGap = sidePanelWidth + mainGap;
+        const usableWidth = availableWidth - totalSidePanelWithGap;
+        calculatedSize = Math.floor(usableWidth / COLS);
+      }
+
+      // Clamp to reasonable range
+      const clampedSize = Math.max(minCellSize, Math.min(maxCellSize, calculatedSize));
+      setCellSize(clampedSize);
+    };
+
+    calculateCellSize();
+    window.addEventListener('resize', calculateCellSize);
+
+    return () => {
+      window.removeEventListener('resize', calculateCellSize);
+    };
+  }, [isRaceMode]);
+
+  return cellSize;
+}
 
 // Increased base delays so traversal is easier to follow visually.
 const SPEED_MS = { slow: 140, medium: 80, fast: 40 };
@@ -46,8 +92,12 @@ function App() {
   const [isRaceMode, setIsRaceMode] = useState(false);
   const [speed, setSpeed] = useState('medium');
   const [isVisualizing, setIsVisualizing] = useState(false);
+  const [simulationPhase, setSimulationPhase] = useState('idle');
   const [stats, setStats] = useState(null);
   const timeoutsRef = useRef([]);
+
+  // ── responsive cell size ─────────────────────────────────
+  const responsiveCellSize = useResponsiveCellSize(isRaceMode);
 
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [scorePopup, setScorePopup] = useState(null);
@@ -562,6 +612,7 @@ function App() {
     setPausedComparison(null);
     setHoveredFrontierNode(null);
     setTraceNotice('');
+    setSimulationPhase('idle');
   }, [clearNextChoiceHighlight, resetGamification]);
 
   const handleClearBoard = useCallback(() => {
@@ -642,8 +693,10 @@ function App() {
 
         if (i >= run.visited.length) {
           run.phase = 'path';
+          setSimulationPhase('path');
           if (run.path.length === 0) {
             run.phase = 'done';
+            setSimulationPhase('done');
             clearNextChoiceHighlight();
             run.onDone?.();
             return;
@@ -777,6 +830,7 @@ function App() {
 
         run.onStep?.(i);
         run.visitedIndex += 1;
+        setSimulationPhase('visited');
         scheduleNextTick();
         return;
       }
@@ -785,6 +839,7 @@ function App() {
         const i = run.pathIndex;
         if (i >= run.path.length) {
           run.phase = 'done';
+          setSimulationPhase('done');
           clearNextChoiceHighlight();
           run.onDone?.();
           return;
@@ -798,6 +853,7 @@ function App() {
         }
 
         run.pathIndex += 1;
+        setSimulationPhase('path');
         scheduleNextTick();
       }
     };
@@ -806,7 +862,7 @@ function App() {
     step();
   };
 
-  const animateAlgorithmRace = (visited, path, prefix, ms, onDone) => {
+  const animateAlgorithmRace = (visited, path, prefix, ms, onDone, onPathStart) => {
     if (visited.length === 0) {
       onDone?.();
       return;
@@ -819,6 +875,7 @@ function App() {
         onDone?.();
         return;
       }
+      onPathStart?.();
 
       let pathIndex = 0;
       const pathStep = () => {
@@ -899,7 +956,14 @@ function App() {
       const astarEnd = gAstar[END_ROW][END_COL];
       const astarPathNodes = astarEnd.isVisited ? getNodesInShortestPathOrder(astarEnd) : [];
 
+      setSimulationPhase('visited');
       let done = 0;
+      let pathPhaseShown = false;
+      const onPathStart = () => {
+        if (pathPhaseShown) return;
+        pathPhaseShown = true;
+        setSimulationPhase('path');
+      };
       const onDone = () => {
         done++;
         if (done >= 2) {
@@ -907,6 +971,7 @@ function App() {
           setIsPaused(false);
           isPausedRef.current = false;
           setHoveredFrontierNode(null);
+          setSimulationPhase('done');
           setStats({
             bfs: { visited: bfsVisited.length, path: bfsPathNodes.length },
             astar: { visited: astarVisited.length, path: astarPathNodes.length },
@@ -917,8 +982,8 @@ function App() {
       setTraceNotice('Detailed formal trace is disabled in Race Mode to avoid mixed proof streams.');
 
       // race mode: independent animation loops for both sides
-      animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone);
-      animateAlgorithmRace(astarVisited, astarPathNodes, 'astar-', ms, onDone);
+      animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone, onPathStart);
+      animateAlgorithmRace(astarVisited, astarPathNodes, 'astar-', ms, onDone, onPathStart);
     } else {
       /* ── single algorithm ── */
       const copy = cloneGrid(cleanGrid);
@@ -1056,6 +1121,7 @@ function App() {
         speed={speed}
         onSpeedChange={setSpeed}
         isVisualizing={isVisualizing}
+        simulationPhase={simulationPhase}
       />
 
       <div className="legend-help" aria-label="Legend help">
@@ -1170,7 +1236,7 @@ function App() {
                   onMouseUp={handleMouseUp}
                   prefix="bfs-"
                   label="BFS"
-                  cellSize={RACE_CELL}
+                  cellSize={responsiveCellSize}
                 />
                 <Grid
                   grid={grid}
@@ -1179,7 +1245,7 @@ function App() {
                   onMouseUp={handleMouseUp}
                   prefix="astar-"
                   label="A*"
-                  cellSize={RACE_CELL}
+                  cellSize={responsiveCellSize}
                 />
               </div>
               {stats && (
@@ -1200,6 +1266,7 @@ function App() {
               onMouseDown={handleMouseDown}
               onMouseEnter={handleMouseEnter}
               onMouseUp={handleMouseUp}
+              cellSize={responsiveCellSize}
             />
           )}
 

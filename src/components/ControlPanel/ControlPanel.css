@@ -142,3 +142,42 @@
   transform: translateY(2px);
   border-bottom-width: 2px !important;
 }
+
+/* ── phase indicator ───────────────────────────────────── */
+.phase-indicator {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  font-size: 0.95rem;
+  background-color: #1b2a40;
+  color: #fff;
+  border: 2px solid #5a5a5a;
+  text-shadow: 1px 1px 0 #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.phase-visited {
+  border-color: #3b82f6;
+  color: #93c5fd;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+.phase-path {
+  border-color: #facc15;
+  color: #fef08a;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
+}
+
+.phase-done {
+  border-color: #10b981;
+  color: #6ee7b7;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.phase-idle {
+  opacity: 0.7;
+}
