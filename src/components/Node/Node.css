@@ -60,6 +60,51 @@
   animation: pathGlow 0.5s ease-out forwards;
 }
 
+.node-hover-preview-path {
+  position: relative;
+  box-shadow: inset 0 0 0 2px rgba(125, 211, 252, 0.95), 0 0 12px rgba(125, 211, 252, 0.2);
+  background-color: rgba(56, 189, 248, 0.3);
+}
+
+.node-hover-preview-forward::after,
+.node-hover-preview-backward::before {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0 3px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #0b1020;
+  background: #e0f2fe;
+  border: 1px solid rgba(56, 189, 248, 0.7);
+  text-shadow: none;
+  pointer-events: none;
+}
+
+.node-hover-preview-forward::after {
+  content: attr(data-forward-label);
+  right: 1px;
+}
+
+.node-hover-preview-backward::before {
+  content: attr(data-backward-label);
+  left: 1px;
+  background: #fde68a;
+  border-color: rgba(250, 204, 21, 0.85);
+}
+
+.node-hover-preview-path-source {
+  box-shadow: inset 0 0 0 3px #facc15, 0 0 14px rgba(250, 204, 21, 0.7);
+  background-color: rgba(250, 204, 21, 0.32);
+}
+
+.node-hover-preview-path-goal {
+  box-shadow: inset 0 0 0 3px #e94560, 0 0 14px rgba(233, 69, 96, 0.65);
+  background-color: rgba(233, 69, 96, 0.28);
+}
+
 .node-prediction-disabled {
   cursor: not-allowed;
   opacity: 0.65;
@@ -78,34 +123,6 @@
   animation: predictionPulse 0.9s ease-in-out infinite;
 }
 
-.node-prediction-correct:hover::after,
-.node-prediction-not-correct:hover::after {
-  position: absolute;
-  left: 50%;
-  top: -26px;
-  transform: translateX(-50%);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 6px;
-  border-radius: 6px;
-  white-space: nowrap;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.node-prediction-correct:hover::after {
-  content: 'Correct next';
-  color: #052e16;
-  background: #86efac;
-  border: 1px solid #22c55e;
-}
-
-.node-prediction-not-correct:hover::after {
-  content: 'Not next yet';
-  color: #450a0a;
-  background: #fca5a5;
-  border: 1px solid #ef4444;
-}
 
 @keyframes predictionPulse {
   0% {
@@ -132,6 +149,19 @@
     transparent
   );
   background-size: 8px 8px;
+}
+
+.node-prediction-correct {
+  box-shadow: inset 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.45);
+  background-color: rgba(34, 197, 94, 0.22);
+}
+
+.node-prediction-correct.node-visited,
+.node-prediction-correct.node-shortest-path {
+  animation: none !important;
+  background-color: rgba(34, 197, 94, 0.28) !important;
+  border-color: #22c55e;
+  box-shadow: inset 0 0 0 2px #22c55e, 0 0 12px rgba(34, 197, 94, 0.55);
 }
 
 .node-next-choice {

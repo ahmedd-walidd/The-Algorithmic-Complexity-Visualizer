@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Grid from './components/Grid/Grid';
 import ControlPanel from './components/ControlPanel/ControlPanel';
 import {
@@ -84,6 +84,24 @@ const INITIAL_SCORE_STATE = {
   lastAttempts: 0,
 };
 
+function buildPreviewPath(grid, start, end, algorithm) {
+  if (!grid?.length || !start || !end) return [];
+
+  const previewGrid = clearPath(cloneGrid(grid));
+  const startNode = previewGrid[start.row]?.[start.col];
+  const endNode = previewGrid[end.row]?.[end.col];
+
+  if (!startNode || !endNode) return [];
+
+  if (algorithm === 'astar') {
+    astar(previewGrid, startNode, endNode);
+  } else {
+    bfs(previewGrid, startNode, endNode);
+  }
+
+  return endNode.isVisited ? getNodesInShortestPathOrder(endNode) : [];
+}
+
 function App() {
   // ── state ────────────────────────────────────────────────
   const [grid, setGrid] = useState(() => createGrid());
@@ -126,6 +144,7 @@ function App() {
     attempts: 0,
     selectedKeys: new Set(),
     awarded: false,
+    correctKey: null,
   });
   const formalTraceRef = useRef(formalTrace);
   const runStateRef = useRef({
@@ -186,6 +205,29 @@ function App() {
     return `Correct: this node has minimum frontier depth g=${ruleMeta.minG}. In BFS, h=0 so f=g, therefore it is a valid next expansion. Press Continue.`;
   }, []);
 
+  const showPositiveGamifiedText = useCallback((row, col, text) => {
+    const ids = [`node-${row}-${col}`, `bfs-node-${row}-${col}`, `astar-node-${row}-${col}`];
+    let el = null;
+    for (const id of ids) {
+      el = document.getElementById(id);
+      if (el) break;
+    }
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const floater = document.createElement('div');
+    floater.className = 'node-gamified-popup node-gamified-popup-positive';
+    floater.innerText = text;
+    floater.style.left = `${rect.left + rect.width / 2}px`;
+    floater.style.top = `${rect.top - 10}px`;
+    floater.style.transform = 'translate(-50%, -100%)';
+
+    document.body.appendChild(floater);
+    setTimeout(() => {
+      floater.remove();
+    }, 2000);
+  }, []);
+
   const resetGamification = useCallback(() => {
     setScoreState(INITIAL_SCORE_STATE);
     quizProgressRef.current = {
@@ -193,6 +235,7 @@ function App() {
       attempts: 0,
       selectedKeys: new Set(),
       awarded: false,
+      correctKey: null,
     };
   }, []);
 
@@ -273,6 +316,7 @@ function App() {
           );
           const attemptsUsed = quizProgressRef.current.attempts;
           quizProgressRef.current.awarded = true;
+          quizProgressRef.current.correctKey = `${row}-${col}`;
 
           setScoreState((prev) => ({
             ...prev,
@@ -300,10 +344,16 @@ function App() {
 
           setScorePopup(scoring);
           setTimeout(() => setScorePopup(null), 3000);
+
+          const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
+          if (el) el.classList.add('node-prediction-correct');
+
+          showPositiveGamifiedText(row, col, `+${scoring.questionScore}`);
         } else {
             // Wrong answer
             const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
             if (el) el.classList.add('node-prediction-wrong');
+
           const detailedMessage = buildWrongPredictionMessage(row, col, quizState);
           setQuizState(prev => ({
             ...prev,
@@ -411,6 +461,20 @@ function App() {
     });
   }, []);
 
+  const clearPreviewPathHighlight = useCallback(() => {
+    document.querySelectorAll('.node-hover-preview-path').forEach((el) => {
+      el.classList.remove(
+        'node-hover-preview-path',
+        'node-hover-preview-path-source',
+        'node-hover-preview-path-goal',
+        'node-hover-preview-forward',
+        'node-hover-preview-backward'
+      );
+      delete el.dataset.forwardLabel;
+      delete el.dataset.backwardLabel;
+    });
+  }, []);
+
   const applyNextChoiceHighlight = useCallback((nodes, prefix = '') => {
     clearNextChoiceHighlight();
     (nodes || []).forEach((n) => {
@@ -430,6 +494,52 @@ function App() {
       el.classList.add('node-frontier-hoverable');
     });
   }, [clearFrontierHoverHighlight]);
+
+  const applyPreviewPathHighlight = useCallback((nodes, options = {}) => {
+    const {
+      prefix = '',
+      kind = 'forward',
+      labelMode = 'remaining',
+      goalRow = END_ROW,
+      goalCol = END_COL,
+      clearBefore = false,
+    } = options;
+
+    if (clearBefore) clearPreviewPathHighlight();
+
+    const isForward = kind === 'forward';
+    const totalSteps = Math.max((nodes || []).length - 1, 0);
+
+    (nodes || []).forEach((n, index) => {
+      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
+      if (!el) return;
+      if (el.classList.contains('node-wall')) return;
+      el.classList.add('node-hover-preview-path');
+      el.classList.add(isForward ? 'node-hover-preview-forward' : 'node-hover-preview-backward');
+
+      if (index === 0) {
+        el.classList.add('node-hover-preview-path-source');
+      }
+      if (index === nodes.length - 1) {
+        el.classList.add('node-hover-preview-path-goal');
+      }
+
+      const labelValue = (() => {
+        if (labelMode === 'heuristic') {
+          return Math.abs(n.row - goalRow) + Math.abs(n.col - goalCol);
+        }
+        if (labelMode === 'remaining') {
+          return totalSteps - index;
+        }
+        return index;
+      })();
+      if (isForward) {
+        el.dataset.forwardLabel = String(labelValue);
+      } else {
+        el.dataset.backwardLabel = String(labelValue);
+      }
+    });
+  }, [clearPreviewPathHighlight]);
 
   const resetRunState = () => {
     runStateRef.current = {
@@ -720,13 +830,6 @@ function App() {
               const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
               if (el && !el.classList.contains('node-visited') && !el.classList.contains('node-wall')) {
                 el.classList.add('node-prediction-candidate');
-                if (correctSet.has(`${c.row}-${c.col}`)) {
-                  el.classList.add('node-prediction-correct');
-                  el.classList.remove('node-prediction-not-correct');
-                } else {
-                  el.classList.add('node-prediction-not-correct');
-                  el.classList.remove('node-prediction-correct');
-                }
               }
             });
 
@@ -742,11 +845,11 @@ function App() {
               selectable.forEach((c) => {
                 const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
                 if (el) {
-                  el.classList.remove(
-                    'node-prediction-candidate',
-                    'node-prediction-correct',
-                    'node-prediction-not-correct'
-                  );
+                  const key = `${c.row}-${c.col}`;
+                  el.classList.remove('node-prediction-candidate', 'node-prediction-not-correct');
+                  if (key !== quizProgressRef.current.correctKey) {
+                    el.classList.remove('node-prediction-correct');
+                  }
                 }
               });
 
@@ -781,7 +884,7 @@ function App() {
               active: true,
               candidates: selectable,
               correctNodes: correct,
-              message: 'Quiz: Which node will be expanded next? (Click a glowing node)',
+              message: 'Quiz: Which frontier node is the mathematically valid next choice under the current algorithm rule? (Click a glowing node)',
               awaitingContinue: false,
               continueFunc: continueAfterFeedback,
               feedbackType: 'question',
@@ -1093,6 +1196,50 @@ function App() {
     return `Not chosen yet: depth g=${hoveredFrontierNode.g} is larger than frontier minimum g=${minG}.`;
   })();
 
+  const hoveredForwardPreviewPath = useMemo(() => {
+    if (!hoveredFrontierNode || !activeHoverComparison) return [];
+    if (activeHoverComparison.algorithm !== 'astar') return [];
+    return buildPreviewPath(
+      grid,
+      { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
+      { row: END_ROW, col: END_COL },
+      activeHoverComparison.algorithm
+    );
+  }, [grid, hoveredFrontierNode, activeHoverComparison]);
+
+  const hoveredBackwardPreviewPath = useMemo(() => {
+    if (!hoveredFrontierNode || !activeHoverComparison) return [];
+    return buildPreviewPath(
+      grid,
+      { row: START_ROW, col: START_COL },
+      { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
+      'bfs'
+    );
+  }, [grid, hoveredFrontierNode, activeHoverComparison]);
+
+  useEffect(() => {
+    clearPreviewPathHighlight();
+    applyPreviewPathHighlight(hoveredBackwardPreviewPath, {
+      kind: 'backward',
+      labelMode: 'index',
+    });
+    if (activeHoverComparison?.algorithm === 'astar') {
+      applyPreviewPathHighlight(hoveredForwardPreviewPath, {
+        kind: 'forward',
+        labelMode: 'heuristic',
+        goalRow: END_ROW,
+        goalCol: END_COL,
+      });
+    }
+    return () => clearPreviewPathHighlight();
+  }, [
+    hoveredForwardPreviewPath,
+    hoveredBackwardPreviewPath,
+    activeHoverComparison,
+    applyPreviewPathHighlight,
+    clearPreviewPathHighlight,
+  ]);
+
   const averageTryAccuracy =
     scoreState.questionsAnswered > 0
       ? scoreState.totalAccuracyScore / scoreState.questionsAnswered
@@ -1174,36 +1321,37 @@ function App() {
 
       {isQuizMode && (
         <div className="game-hud" aria-label="Gamification score">
-          <div className="hud-row" style={{ position: 'relative' }}>
-            <span className="hud-icon">❤️</span>
+          <div className="hud-row">
             <span className="hud-label">TRIES AVG</span>
             <span className="hud-value">
               {scoreState.questionsAnswered > 0 ? averageTriesPerQuestion.toFixed(1) : '-.-'}
             </span>
           </div>
-          <div className="hud-row" style={{ position: 'relative' }}>
-            <span className="hud-icon">⭐</span>
+          <div className="hud-row">
             <span className="hud-label">SCORE</span>
-            <span className="hud-value">
-              {scoreState.totalScore.toString().padStart(6, '0')}
-            </span>
-            {scorePopup && (
-              <span className="score-popup-floating">
-                +{scorePopup.questionScore}
+            <span className="hud-value-wrap">
+              <span className="hud-value">
+                {scoreState.totalScore.toString().padStart(6, '0')}
               </span>
-            )}
+              {scorePopup && (
+                <span className="score-popup-floating score-popup-score">
+                  +{scorePopup.questionScore}
+                </span>
+              )}
+            </span>
           </div>
-          <div className="hud-row" style={{ position: 'relative' }}>
-            <span className="hud-icon">🎯</span>
+          <div className="hud-row">
             <span className="hud-label">ACCURACY</span>
-            <span className="hud-value">
-              {scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '--%'}
-            </span>
-            {scorePopup && (
-              <span className="score-popup-floating" style={{ color: '#6cb6ff' }}>
-                {Math.round(scorePopup.accuracy * 100)}% (in {scorePopup.responseSeconds.toFixed(1)}s)
+            <span className="hud-value-wrap">
+              <span className="hud-value">
+                {scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '--%'}
               </span>
-            )}
+              {scorePopup && (
+                <span className="score-popup-floating score-popup-accuracy">
+                  {Math.round(scorePopup.accuracy * 100)}% in {scorePopup.responseSeconds.toFixed(1)}s
+                </span>
+              )}
+            </span>
           </div>
         </div>
       )}
@@ -1283,6 +1431,26 @@ function App() {
                 <p>
                   <strong>Decision:</strong> {hoveredNodeDecision}
                 </p>
+
+                {activeHoverComparison.algorithm === 'astar' ? (
+                  <>
+                    <p>
+                      <strong>Heuristic h(n):</strong> {hoveredFrontierNode.h}
+                    </p>
+                    <p>
+                      <strong>Depth g(n):</strong> {hoveredFrontierNode.g}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong>Depth g(n):</strong> {hoveredFrontierNode.g}
+                    </p>
+                    <p>
+                      <strong>BFS rule:</strong> minimum frontier depth g is expanded first.
+                    </p>
+                  </>
+                )}
 
                 {activeHoverComparison.algorithm === 'astar' ? (
                   <>
