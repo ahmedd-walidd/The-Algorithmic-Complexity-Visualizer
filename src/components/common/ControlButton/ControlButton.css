@@ -1,0 +1,67 @@
+.control-button {
+  padding: 0.5rem 1rem;
+  border: 2px solid #5a5a5a;
+  border-bottom-width: 4px;
+  border-radius: 4px;
+  background-color: #213550;
+  color: #fff;
+  font-size: 0.95rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  white-space: nowrap;
+}
+
+.control-button:hover:not(:disabled) {
+  background-color: #2b4970;
+  border-color: #9fb9e8;
+  transform: translateY(-2px);
+}
+
+.control-button:active:not(:disabled) {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+
+.control-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(100%);
+}
+
+.control-button--default.is-active,
+.control-button--default[aria-pressed='true'] {
+  background-color: #facc15;
+  border-color: #dcb313;
+  color: #0f1e30;
+  text-shadow: none;
+}
+
+.control-button--warning.is-active,
+.control-button--warning[aria-pressed='true'] {
+  background-color: #22c55e;
+  border-color: #15803d;
+  color: #0f1e30;
+  text-shadow: none;
+}
+
+.control-button--primary {
+  background-color: #e94560;
+  border-color: #922032;
+  color: #ffffff;
+  font-weight: 800;
+  padding: 0.6rem 1.5rem;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.control-button--primary:hover:not(:disabled) {
+  background-color: #ff5c77;
+}
+
+.control-button--primary:active:not(:disabled) {
+  border-bottom-width: 2px;
+}

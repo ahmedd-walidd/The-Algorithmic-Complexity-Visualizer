@@ -1,0 +1,54 @@
+.status-badge {
+  width: min(1024px, 95vw);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(102, 153, 255, 0.24);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(15, 30, 48, 0.96), rgba(10, 20, 34, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 10px 20px rgba(5, 8, 20, 0.2);
+  font-family: 'Courier New', Courier, monospace;
+  user-select: none;
+}
+
+.status-badge-label {
+  color: #facc15;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.status-badge-value {
+  color: #e8f1ff;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.status-badge-idle {
+  opacity: 0.78;
+}
+
+.status-badge-visited {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12), 0 0 14px rgba(59, 130, 246, 0.16);
+}
+
+.status-badge-paused {
+  border-color: rgba(250, 204, 21, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.14), 0 0 14px rgba(250, 204, 21, 0.16);
+}
+
+.status-badge-path {
+  border-color: rgba(250, 204, 21, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.12), 0 0 14px rgba(250, 204, 21, 0.16);
+}
+
+.status-badge-done {
+  border-color: rgba(16, 185, 129, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.12), 0 0 14px rgba(16, 185, 129, 0.16);
+}

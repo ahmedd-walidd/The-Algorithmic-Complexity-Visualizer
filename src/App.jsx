@@ -1,6 +1,10 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Grid from './components/Grid/Grid';
 import ControlPanel from './components/ControlPanel/ControlPanel';
+import IconFab from './components/common/IconFab/IconFab';
+import ModalShell from './components/common/ModalShell/ModalShell';
+import StatCard from './components/common/StatCard/StatCard';
+import StatusBadge from './components/common/StatusBadge/StatusBadge';
 import {
   createGrid,
   clearPath,
@@ -14,53 +18,8 @@ import {
 import { generateMaze } from './utils/mazeGenerator';
 import { bfs } from './algorithms/bfs';
 import { astar } from './algorithms/astar';
-import { COLS } from './utils/gridHelpers';
+import useResponsiveCellSize from './hooks/useResponsiveCellSize';
 import './App.css';
-
-// Custom hook to calculate responsive cell size based on viewport width
-function useResponsiveCellSize(isRaceMode = false) {
-  const [cellSize, setCellSize] = useState(25);
-
-  useEffect(() => {
-    const calculateCellSize = () => {
-      // Constants (in pixels)
-      const sidePanelWidth = 280;
-      const mainGap = 24; // 1.5rem ≈ 24px
-      const appPadding = 32; // 2rem = 32px
-      const minCellSize = 12;
-      const maxCellSize = 28;
-
-      const vw = window.innerWidth;
-      const availableWidth = vw * 0.95 - appPadding * 2;
-
-      let calculatedSize;
-      if (isRaceMode) {
-        // Two grids side-by-side + gap between them
-        const twoGridsGap = mainGap;
-        const usableWidth = availableWidth - twoGridsGap;
-        calculatedSize = Math.floor(usableWidth / (COLS * 2));
-      } else {
-        // Single grid + side panel
-        const totalSidePanelWithGap = sidePanelWidth + mainGap;
-        const usableWidth = availableWidth - totalSidePanelWithGap;
-        calculatedSize = Math.floor(usableWidth / COLS);
-      }
-
-      // Clamp to reasonable range
-      const clampedSize = Math.max(minCellSize, Math.min(maxCellSize, calculatedSize));
-      setCellSize(clampedSize);
-    };
-
-    calculateCellSize();
-    window.addEventListener('resize', calculateCellSize);
-
-    return () => {
-      window.removeEventListener('resize', calculateCellSize);
-    };
-  }, [isRaceMode]);
-
-  return cellSize;
-}
 
 // Increased base delays so traversal is easier to follow visually.
 const SPEED_MS = { slow: 140, medium: 80, fast: 40 };
@@ -146,11 +105,15 @@ function App() {
   const [isPaused, setIsPaused] = useState(false);
   const [pausedComparison, setPausedComparison] = useState(null);
   const [hoveredFrontierNode, setHoveredFrontierNode] = useState(null);
+  const isObstaclePainting = isObstacleMode && isMousePressed;
+  const pausedPhaseRef = useRef('idle');
 
   const getSimulationPhaseDisplay = useCallback(() => {
     switch (simulationPhase) {
       case 'idle':
         return 'Idle';
+      case 'paused':
+        return 'Paused';
       case 'visited':
         return 'Traversing...';
       case 'path':
@@ -750,6 +713,8 @@ function App() {
 
   const pauseRun = useCallback(() => {
     clearAllTimeouts();
+    pausedPhaseRef.current = runStateRef.current.phase;
+    setSimulationPhase('paused');
     const comparison = getNextTraversalComparison();
     setPausedComparison(comparison);
     setHoveredFrontierNode(null);
@@ -762,6 +727,7 @@ function App() {
     clearFrontierHoverHighlight();
     setPausedComparison(null);
     setHoveredFrontierNode(null);
+    setSimulationPhase(pausedPhaseRef.current || runStateRef.current.phase || 'idle');
 
     const run = runStateRef.current;
     if (run.phase === 'idle' || run.phase === 'done') return;
@@ -830,6 +796,7 @@ function App() {
     setHoveredFrontierNode(null);
     setTraceNotice('');
     setSimulationPhase('idle');
+    pausedPhaseRef.current = 'idle';
   }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
 
   const handleClearBoard = useCallback(() => {
@@ -848,6 +815,7 @@ function App() {
     setPausedComparison(null);
     setHoveredFrontierNode(null);
     setTraceNotice('');
+    pausedPhaseRef.current = 'idle';
   }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
 
   const handleClearPath = useCallback(() => {
@@ -866,6 +834,7 @@ function App() {
     setPausedComparison(null);
     setHoveredFrontierNode(null);
     setTraceNotice('');
+    pausedPhaseRef.current = 'idle';
   }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
 
   // ── animation engine ─────────────────────────────────────
@@ -1245,9 +1214,6 @@ function App() {
       ? formalTrace[activeTraceIndex]
       : null;
 
-  const hoveredFrontierEquation = hoveredFrontierNode
-    ? `f(n)=g(n)+h(n)=${hoveredFrontierNode.g}+${hoveredFrontierNode.h}=${hoveredFrontierNode.f}`
-    : '';
   const activeHoverComparison = (() => {
     if (isRaceMode) return null;
 
@@ -1276,8 +1242,32 @@ function App() {
     return null;
   })();
 
+  const renderTraceEquation = useCallback((scores) => {
+    if (!scores) return null;
+
+    const gTone = 'path';
+    const hTone = 'visited';
+    const fTone = 'neutral';
+
+    return (
+      <span className="trace-equation">
+        <span className="trace-equation-token trace-equation-token-neutral">f(n)</span>
+        <span className="trace-equation-equals">=</span>
+        <span className="trace-equation-token trace-equation-token-path">g(n)</span>
+        <span className="trace-equation-equals">+</span>
+        <span className="trace-equation-token trace-equation-token-visited">h(n)</span>
+        <span className="trace-equation-equals">=</span>
+        <span className={`trace-equation-value trace-equation-value-${gTone}`}>{scores.g}</span>
+        <span className="trace-equation-equals">+</span>
+        <span className={`trace-equation-value trace-equation-value-${hTone}`}>{scores.h}</span>
+        <span className="trace-equation-equals">=</span>
+        <span className={`trace-equation-value trace-equation-value-${fTone}`}>{scores.f}</span>
+      </span>
+    );
+  }, []);
+
   const hoveredNodeDecision = (() => {
-    if (!hoveredFrontierNode || !activeHoverComparison) return '';
+    if (!hoveredFrontierNode || !activeHoverComparison) return { text: '', tone: '' };
 
     if (activeHoverComparison.algorithm === 'astar') {
       const minF = activeHoverComparison.minComparison?.minF;
@@ -1286,21 +1276,36 @@ function App() {
       const hasBestTieBreak = hoveredFrontierNode.h === minHAmongMinF;
 
       if (hasMinF && hasBestTieBreak) {
-        return 'Would be chosen next: minimum frontier f and minimum tie-break h.';
+        return {
+          text: 'Would be chosen next: minimum frontier f and minimum tie-break h.',
+          tone: 'chosen',
+        };
       }
 
       if (!hasMinF) {
-        return `Not chosen yet: f=${hoveredFrontierNode.f} is larger than frontier minimum f=${minF}.`;
+        return {
+          text: `Not chosen yet: f=${hoveredFrontierNode.f} is larger than frontier minimum f=${minF}.`,
+          tone: 'not-chosen',
+        };
       }
 
-      return `Not chosen yet: ties on f=${hoveredFrontierNode.f}, but h=${hoveredFrontierNode.h} is larger than minimum tie-break h=${minHAmongMinF}.`;
+      return {
+        text: `Not chosen yet: ties on f=${hoveredFrontierNode.f}, but h=${hoveredFrontierNode.h} is larger than minimum tie-break h=${minHAmongMinF}.`,
+        tone: 'not-chosen',
+      };
     }
 
     const minG = activeHoverComparison.minComparison?.minG;
     if (hoveredFrontierNode.g === minG) {
-      return 'Would be chosen next: minimum frontier depth g (BFS queue rule).';
+      return {
+        text: 'Would be chosen next: minimum frontier depth g (BFS queue rule).',
+        tone: 'chosen',
+      };
     }
-    return `Not chosen yet: depth g=${hoveredFrontierNode.g} is larger than frontier minimum g=${minG}.`;
+    return {
+      text: `Not chosen yet: depth g=${hoveredFrontierNode.g} is larger than frontier minimum g=${minG}.`,
+      tone: 'not-chosen',
+    };
   })();
 
   const hoveredForwardPreviewPath = useMemo(() => {
@@ -1358,29 +1363,30 @@ function App() {
 
   // ── render ───────────────────────────────────────────────
   return (
-    <div className={`app${isObstacleMode ? ' obstacle-mode' : ''}`} onMouseLeave={handleMouseUp}>
+    <div
+      className={`app${isObstacleMode ? ' obstacle-mode' : ''}${isObstaclePainting ? ' obstacle-painting' : ''}`}
+      onMouseLeave={handleMouseUp}
+    >
       <h1 className="app-title">
         <span className="app-title-top">The Algorithmic Complexity</span>
         <span className="app-title-bottom">Visualizer</span>
       </h1>
 
-      <button
-        type="button"
-        className="settings-fab"
+      <IconFab
+        className="icon-fab--settings"
         onClick={openSettings}
         aria-haspopup="dialog"
         aria-expanded={isSettingsOpen}
         aria-label="Open settings"
         title="Open settings"
       >
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="settings-fab-icon">
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="icon-fab-icon">
           <path d="M19.14 12.94a7.43 7.43 0 0 0 .05-.94c0-.32-.02-.63-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.25 7.25 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42H9.28a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L1.88 7.84a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2 13.52a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.72a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.02-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
         </svg>
-      </button>
+      </IconFab>
 
-      <button
-        type="button"
-        className="legend-fab"
+      <IconFab
+        className="icon-fab--legend"
         onClick={openLegend}
         aria-haspopup="dialog"
         aria-expanded={isLegendOpen}
@@ -1388,7 +1394,7 @@ function App() {
         title="Open legend"
       >
         ?
-      </button>
+      </IconFab>
 
       <ControlPanel
         onGenerateMaze={handleGenerateMaze}
@@ -1406,10 +1412,11 @@ function App() {
         isVisualizing={isVisualizing}
       />
 
-      <div className={`simulation-status simulation-status-${simulationPhase}`} role="status" aria-live="polite">
-        <span className="simulation-status-label">Simulation State</span>
-        <span className="simulation-status-value">{getSimulationPhaseDisplay()}</span>
-      </div>
+      <StatusBadge
+        className={`status-badge-${simulationPhase}`}
+        label="Simulation State"
+        value={getSimulationPhaseDisplay()}
+      />
 
       {isObstacleMode && (
         <div className="board-tip" role="note" aria-live="polite">
@@ -1418,162 +1425,126 @@ function App() {
       )}
 
       {isSettingsOpen && (
-        <div
-          className="settings-overlay"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeSettings();
-            }
-          }}
-        >
-          <section
-            className="settings-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="settings-title"
-          >
-            <header className="settings-modal-header">
-              <div>
-                <p className="settings-kicker">Preferences</p>
-                <h2 id="settings-title">Simulation Settings</h2>
-              </div>
-              <button type="button" className="settings-close-btn" onClick={closeSettings}>
-                Close
-              </button>
-            </header>
-
-            <div className="settings-modal-body">
-              <section className="settings-card">
-                <h3>Simulation Speed</h3>
-                <p>Controls how quickly traversal steps are animated.</p>
-                <div className="settings-option-list" role="radiogroup" aria-label="Simulation speed">
-                  {[
-                    { value: 'slow', label: 'Slow', detail: 'Easier to follow' },
-                    { value: 'medium', label: 'Medium', detail: 'Balanced pace' },
-                    { value: 'fast', label: 'Fast', detail: 'Quick runs' },
-                  ].map((option) => (
-                    <label key={option.value} className="settings-option-card">
-                      <input
-                        type="radio"
-                        name="simulation-speed"
-                        value={option.value}
-                        checked={settingsDraft.speed === option.value}
-                        onChange={() => setSettingsDraft((prev) => ({ ...prev, speed: option.value }))}
-                      />
-                      <span>
-                        <strong>{option.label}</strong>
-                        <small>{option.detail}</small>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </section>
-
-              <section className="settings-card">
-                <h3>Pause-Prediction cadence</h3>
-                <p>How many algorithm steps pass before a quiz prompt appears.</p>
-                <div className="settings-slider-row">
-                  <input
-                    type="range"
-                    min="5"
-                    max="30"
-                    step="1"
-                    value={settingsDraft.quizPromptInterval}
-                    onChange={(event) =>
-                      setSettingsDraft((prev) => ({
-                        ...prev,
-                        quizPromptInterval: Number(event.target.value),
-                      }))
-                    }
-                  />
-                  <div className="settings-slider-value">
-                    <strong>{settingsDraft.quizPromptInterval}</strong>
-                    <span>steps</span>
-                  </div>
-                </div>
-              </section>
-
-              <section className="settings-card settings-card-muted">
-                <h3>Quick actions</h3>
-                <p>Use the defaults if you want the original pacing back.</p>
-                <button type="button" className="settings-secondary-btn" onClick={resetSettingsToDefaults}>
-                  Restore defaults
-                </button>
-              </section>
-            </div>
-
-            <footer className="settings-modal-footer">
+        <ModalShell
+          className="modal-shell--settings"
+          titleId="settings-title"
+          kicker="Preferences"
+          title="Simulation Settings"
+          onClose={closeSettings}
+          footer={(
+            <>
               <button type="button" className="settings-secondary-btn" onClick={closeSettings}>
                 Cancel
               </button>
               <button type="button" className="settings-primary-btn" onClick={saveSettings}>
                 Apply Settings
               </button>
-            </footer>
-          </section>
-        </div>
-      )}
-
-      {isLegendOpen && (
-        <div
-          className="legend-overlay"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeLegend();
-            }
-          }}
+            </>
+          )}
         >
-          <section className="legend-modal" role="dialog" aria-modal="true" aria-labelledby="legend-title">
-            <header className="legend-modal-header">
-              <div>
-                <p className="legend-kicker">Reference</p>
-                <h2 id="legend-title">Visualizer Legend</h2>
-              </div>
-              <button type="button" className="legend-close-btn" onClick={closeLegend}>
-                Close
-              </button>
-            </header>
+          <section className="settings-card">
+            <h3>Simulation Speed</h3>
+            <p>Controls how quickly traversal steps are animated.</p>
+            <div className="settings-option-list" role="radiogroup" aria-label="Simulation speed">
+              {[
+                { value: 'slow', label: 'Slow', detail: 'Easier to follow' },
+                { value: 'medium', label: 'Medium', detail: 'Balanced pace' },
+                { value: 'fast', label: 'Fast', detail: 'Quick runs' },
+              ].map((option) => (
+                <label key={option.value} className="settings-option-card">
+                  <input
+                    type="radio"
+                    name="simulation-speed"
+                    value={option.value}
+                    checked={settingsDraft.speed === option.value}
+                    onChange={() => setSettingsDraft((prev) => ({ ...prev, speed: option.value }))}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.detail}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
 
-            <div className="legend-modal-body">
-              <div className="legend-grid">
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-start" />
-                  <span>Start node</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-end" />
-                  <span>Goal node</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-wall" />
-                  <span>Obstacle / wall</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-unvisited" />
-                  <span>Unvisited node</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-visited" />
-                  <span>Visited during search</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-path" />
-                  <span>Shortest path</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-candidate" />
-                  <span>Quiz candidate node</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-swatch swatch-next" />
-                  <span>Paused next valid choice</span>
-                </div>
+          <section className="settings-card">
+            <h3>Pause-Prediction cadence</h3>
+            <p>How many algorithm steps pass before a quiz prompt appears.</p>
+            <div className="settings-slider-row">
+              <input
+                type="range"
+                min="5"
+                max="30"
+                step="1"
+                value={settingsDraft.quizPromptInterval}
+                onChange={(event) =>
+                  setSettingsDraft((prev) => ({
+                    ...prev,
+                    quizPromptInterval: Number(event.target.value),
+                  }))
+                }
+              />
+              <div className="settings-slider-value">
+                <strong>{settingsDraft.quizPromptInterval}</strong>
+                <span>steps</span>
               </div>
             </div>
           </section>
-        </div>
+
+          <section className="settings-card settings-card-muted">
+            <h3>Quick actions</h3>
+            <p>Use the defaults if you want the original pacing back.</p>
+            <button type="button" className="settings-secondary-btn" onClick={resetSettingsToDefaults}>
+              Restore defaults
+            </button>
+          </section>
+        </ModalShell>
+      )}
+
+      {isLegendOpen && (
+        <ModalShell
+          className="modal-shell--legend"
+          titleId="legend-title"
+          kicker="Reference"
+          title="Visualizer Legend"
+          onClose={closeLegend}
+        >
+          <div className="legend-grid">
+            <div className="legend-item">
+              <span className="legend-swatch swatch-start" />
+              <span>Start node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-end" />
+              <span>Goal node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-wall" />
+              <span>Obstacle / wall</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-unvisited" />
+              <span>Unvisited node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-visited" />
+              <span>Visited during search</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-path" />
+              <span>Shortest path</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-candidate" />
+              <span>Quiz candidate node</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-swatch swatch-next" />
+              <span>Paused next valid choice</span>
+            </div>
+          </div>
+        </ModalShell>
       )}
 
       {isQuizMode && (
@@ -1656,11 +1627,10 @@ function App() {
               {stats && (
                 <div className="stats-container">
                   {Object.entries(stats).map(([key, { visited, path }]) => (
-                    <div key={key} className="stat-card">
-                      <h3>{key === 'bfs' ? 'BFS' : 'A*'}</h3>
+                    <StatCard key={key} title={key === 'bfs' ? 'BFS' : 'A*'}>
                       <p>Visited Nodes: <span className="stat-value">{visited}</span></p>
                       <p>Path Length: <span className="stat-value">{path > 0 ? path : '—'}</span></p>
-                    </div>
+                    </StatCard>
                   ))}
                 </div>
               )}
@@ -1683,25 +1653,38 @@ function App() {
                   <strong>Hovered node:</strong> ({hoveredFrontierNode.row}, {hoveredFrontierNode.col})
                 </p>
                 <p>
-                  <strong>Equation for this node:</strong> {hoveredFrontierEquation}
+                  <strong>Equation for this node:</strong>{' '}
+                  {renderTraceEquation(hoveredFrontierNode, activeHoverComparison.algorithm)}
                 </p>
                 <p>
-                  <strong>Decision:</strong> {hoveredNodeDecision}
+                  <strong>Decision:</strong>{' '}
+                  <span className={`hover-decision hover-decision-${hoveredNodeDecision.tone}`}>
+                    {hoveredNodeDecision.text}
+                  </span>
                 </p>
 
                 {activeHoverComparison.algorithm === 'astar' ? (
                   <>
                     <p>
-                      <strong>Heuristic h(n):</strong> {hoveredFrontierNode.h}
+                      <strong>Heuristic h(n):</strong>{' '}
+                      <span className="trace-inline-value trace-inline-value-visited">
+                        {hoveredFrontierNode.h}
+                      </span>
                     </p>
                     <p>
-                      <strong>Depth g(n):</strong> {hoveredFrontierNode.g}
+                      <strong>Depth g(n):</strong>{' '}
+                      <span className="trace-inline-value trace-inline-value-path">
+                        {hoveredFrontierNode.g}
+                      </span>
                     </p>
                   </>
                 ) : (
                   <>
                     <p>
-                      <strong>Depth g(n):</strong> {hoveredFrontierNode.g}
+                      <strong>Depth g(n):</strong>{' '}
+                      <span className="trace-inline-value trace-inline-value-path">
+                        {hoveredFrontierNode.g}
+                      </span>
                     </p>
                     <p>
                       <strong>BFS rule:</strong> minimum frontier depth g is expanded first.
@@ -1758,7 +1741,8 @@ function App() {
                     <strong>Expanded:</strong> ({currentTrace.expandedNode.row}, {currentTrace.expandedNode.col})
                   </p>
                   <p>
-                    <strong>Equation:</strong> {currentTrace.equation}
+                    <strong>Equation:</strong>{' '}
+                    {renderTraceEquation(currentTrace.expandedScores, currentTrace.algorithm)}
                   </p>
                   <p>
                     <strong>Rule:</strong> {currentTrace.selectedBecause}
@@ -1785,11 +1769,10 @@ function App() {
             {stats && (
               <div className="stats-sidebar">
                 {Object.entries(stats).map(([key, { visited, path }]) => (
-                  <div key={key} className="stat-card-mini">
-                    <h3>{key === 'bfs' ? 'BFS' : 'A*'}</h3>
+                  <StatCard key={key} title={key === 'bfs' ? 'BFS' : 'A*'} className="stat-card-mini">
                     <p>Visited: <strong>{visited}</strong></p>
                     <p>Path: <strong>{path > 0 ? path : '—'}</strong></p>
-                  </div>
+                  </StatCard>
                 ))}
               </div>
             )}

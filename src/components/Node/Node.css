@@ -13,10 +13,6 @@
     transform 120ms ease;
 }
 
-.app.obstacle-mode .node {
-  cursor: crosshair;
-}
-
 .node-start {
   background-color: #facc15; /* Retro yellow */
   border-color: #eab308;

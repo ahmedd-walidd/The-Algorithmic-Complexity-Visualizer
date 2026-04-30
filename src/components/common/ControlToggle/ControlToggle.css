@@ -1,0 +1,18 @@
+.control-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #facc15;
+  font-size: 0.95rem;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.control-toggle input {
+  cursor: pointer;
+  accent-color: #e94560;
+  width: 1.2rem;
+  height: 1.2rem;
+}

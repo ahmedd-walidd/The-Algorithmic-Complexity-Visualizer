@@ -1,3 +1,5 @@
+import ControlButton from '../common/ControlButton/ControlButton';
+import ControlToggle from '../common/ControlToggle/ControlToggle';
 import './ControlPanel.css';
 
 function ControlPanel({
@@ -19,81 +21,66 @@ function ControlPanel({
     <div className="control-panel">
       {/* ── maze / board actions ── */}
       <div className="control-group">
-        <button onClick={onGenerateMaze} disabled={isVisualizing}>
+        <ControlButton onClick={onGenerateMaze} disabled={isVisualizing}>
           Generate Maze
-        </button>
-        <button onClick={onClearBoard} disabled={isVisualizing}>
+        </ControlButton>
+        <ControlButton onClick={onClearBoard} disabled={isVisualizing}>
           Clear Board
-        </button>
-        <button onClick={onClearPath} disabled={isVisualizing}>
+        </ControlButton>
+        <ControlButton onClick={onClearPath} disabled={isVisualizing}>
           Clear Path
-        </button>
-        <button
-          className={`obstacle-mode-btn ${isObstacleMode ? 'active' : ''}`}
+        </ControlButton>
+        <ControlButton
+          variant="warning"
+          active={isObstacleMode}
           onClick={onObstacleModeToggle}
           disabled={isVisualizing}
         >
           {isObstacleMode ? 'Exit Obstacle Mode' : 'Obstacle Mode'}
-        </button>
+        </ControlButton>
       </div>
 
       {/* ── algorithm choice + race toggle ── */}
       <div className="control-group">
         {!isRaceMode && (
           <div className="algorithm-buttons">
-            <button
-              className={`algorithm-btn ${algorithm === 'bfs' ? 'active' : ''}`}
+            <ControlButton
+              active={algorithm === 'bfs'}
               onClick={() => onAlgorithmChange('bfs')}
               disabled={isVisualizing}
             >
               BFS
-            </button>
-            <button
-              className={`algorithm-btn ${algorithm === 'astar' ? 'active' : ''}`}
+            </ControlButton>
+            <ControlButton
+              active={algorithm === 'astar'}
               onClick={() => onAlgorithmChange('astar')}
               disabled={isVisualizing}
             >
               A*
-            </button>
+            </ControlButton>
           </div>
         )}
 
-        <label className="race-toggle">
-          <input
-            type="checkbox"
-            checked={isRaceMode}
-            onChange={onRaceModeToggle}
-            disabled={isVisualizing}
-          />
+        <ControlToggle checked={isRaceMode} onChange={onRaceModeToggle} disabled={isVisualizing}>
           Race Mode
-        </label>
+        </ControlToggle>
         
         {!isRaceMode && (
-          <label className="quiz-toggle">
-            <input
-              type="checkbox"
-              checked={isQuizMode}
-              onChange={onQuizModeToggle}
-              disabled={isVisualizing}
-            />
+          <ControlToggle checked={isQuizMode} onChange={onQuizModeToggle} disabled={isVisualizing}>
             Pause-Prediction
-          </label>
+          </ControlToggle>
         )}
       </div>
 
       {/* ── go button ── */}
       <div className="control-group">
-        <button
-          className="visualize-btn"
-          onClick={onVisualize}
-          disabled={isVisualizing}
-        >
+        <ControlButton variant="primary" onClick={onVisualize} disabled={isVisualizing}>
           {isVisualizing
             ? 'Visualizing…'
             : isRaceMode
               ? 'Start Race!'
               : 'Visualize!'}
-        </button>
+        </ControlButton>
       </div>
     </div>
   );
