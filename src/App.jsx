@@ -5,6 +5,7 @@ import IconFab from './components/common/IconFab/IconFab';
 import ModalShell from './components/common/ModalShell/ModalShell';
 import StatCard from './components/common/StatCard/StatCard';
 import StatusBadge from './components/common/StatusBadge/StatusBadge';
+import RunSummaryModal from './components/RunSummaryModal/RunSummaryModal';
 import {
   createGrid,
   clearPath,
@@ -18,6 +19,8 @@ import {
 import { generateMaze } from './utils/mazeGenerator';
 import { bfs } from './algorithms/bfs';
 import { astar } from './algorithms/astar';
+import { buildKnowledgeSpaceSnapshot } from './framework/knowledgeSpace';
+import { buildRunSummary } from './framework/runAnalysis';
 import useResponsiveCellSize from './hooks/useResponsiveCellSize';
 import './App.css';
 
@@ -78,9 +81,13 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(DEFAULT_SETTINGS);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [sidePanelTab, setSidePanelTab] = useState('manifesto');
   const [isVisualizing, setIsVisualizing] = useState(false);
   const [simulationPhase, setSimulationPhase] = useState('idle');
   const [stats, setStats] = useState(null);
+  const [runSummary, setRunSummary] = useState(null);
+  const [isRunSummaryOpen, setIsRunSummaryOpen] = useState(false);
+  const [runSummaryIsRaceMode, setRunSummaryIsRaceMode] = useState(false);
   const timeoutsRef = useRef([]);
   const obstacleDragModeRef = useRef(null);
 
@@ -291,6 +298,12 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSettingsOpen, isLegendOpen]);
+
+  const clearRunSummary = useCallback(() => {
+    setRunSummary(null);
+    setIsRunSummaryOpen(false);
+    setRunSummaryIsRaceMode(false);
+  }, []);
 
   const openSettings = useCallback(() => {
     setIsLegendOpen(false);
@@ -784,6 +797,7 @@ function App() {
     clearDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
+    clearRunSummary();
     setGrid((prev) => generateMaze(prev));
     setStats(null);
     setIsVisualizing(false);
@@ -797,13 +811,14 @@ function App() {
     setTraceNotice('');
     setSimulationPhase('idle');
     pausedPhaseRef.current = 'idle';
-  }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
+  }, [clearNextChoiceHighlight, clearRunSummary, resetGamification, resetRunState]);
 
   const handleClearBoard = useCallback(() => {
     clearAllTimeouts();
     clearDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
+    clearRunSummary();
     setGrid(createGrid());
     setStats(null);
     setIsVisualizing(false);
@@ -816,13 +831,14 @@ function App() {
     setHoveredFrontierNode(null);
     setTraceNotice('');
     pausedPhaseRef.current = 'idle';
-  }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
+  }, [clearNextChoiceHighlight, clearRunSummary, resetGamification, resetRunState]);
 
   const handleClearPath = useCallback(() => {
     clearAllTimeouts();
     clearDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
+    clearRunSummary();
     setGrid((prev) => clearPath(prev));
     setStats(null);
     setIsVisualizing(false);
@@ -835,7 +851,35 @@ function App() {
     setHoveredFrontierNode(null);
     setTraceNotice('');
     pausedPhaseRef.current = 'idle';
-  }, [clearNextChoiceHighlight, resetGamification, resetRunState]);
+  }, [clearNextChoiceHighlight, clearRunSummary, resetGamification, resetRunState]);
+
+  const handleRaceModeToggle = useCallback(() => {
+    clearAllTimeouts();
+    clearDomClasses();
+    clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
+    clearPreviewPathHighlight();
+    resetRunState();
+    clearRunSummary();
+
+    setIsRaceMode((value) => !value);
+    setIsVisualizing(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    pausedPhaseRef.current = 'idle';
+    setStats(null);
+    setFormalTrace([]);
+    setActiveTraceIndex(-1);
+    setPausedComparison(null);
+    setHoveredFrontierNode(null);
+    setTraceNotice('');
+  }, [
+    clearFrontierHoverHighlight,
+    clearNextChoiceHighlight,
+    clearPreviewPathHighlight,
+    clearRunSummary,
+    resetRunState,
+  ]);
 
   // ── animation engine ─────────────────────────────────────
   const animateAlgorithm = (visited, path, prefix, ms, optionsByIndex, onDone, onStep) => {
@@ -1105,6 +1149,7 @@ function App() {
     clearDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
+    clearRunSummary();
 
     const cleanGrid = clearPath(grid);
     setGrid(cleanGrid);
@@ -1127,13 +1172,32 @@ function App() {
       const gBfs = cloneGrid(cleanGrid);
       const gAstar = cloneGrid(cleanGrid);
 
+      const bfsStart = performance.now();
       const bfsVisited = bfs(gBfs, gBfs[START_ROW][START_COL], gBfs[END_ROW][END_COL]);
+      const bfsDurationMs = performance.now() - bfsStart;
       const bfsEnd = gBfs[END_ROW][END_COL];
       const bfsPathNodes = bfsEnd.isVisited ? getNodesInShortestPathOrder(bfsEnd) : [];
 
+      const astarStart = performance.now();
       const astarVisited = astar(gAstar, gAstar[START_ROW][START_COL], gAstar[END_ROW][END_COL]);
+      const astarDurationMs = performance.now() - astarStart;
       const astarEnd = gAstar[END_ROW][END_COL];
       const astarPathNodes = astarEnd.isVisited ? getNodesInShortestPathOrder(astarEnd) : [];
+
+      const runResults = {
+        bfs: {
+          visited: bfsVisited.length,
+          pathNodes: bfsPathNodes,
+          formalTrace: [],
+          durationMs: bfsDurationMs,
+        },
+        astar: {
+          visited: astarVisited.length,
+          pathNodes: astarPathNodes,
+          formalTrace: [],
+          durationMs: astarDurationMs,
+        },
+      };
 
       setSimulationPhase('visited');
       let done = 0;
@@ -1151,6 +1215,16 @@ function App() {
           isPausedRef.current = false;
           setHoveredFrontierNode(null);
           setSimulationPhase('done');
+          setRunSummary(
+            buildRunSummary({
+              grid: cleanGrid,
+              runResults,
+              scoreState,
+              isQuizMode,
+              quizPromptInterval,
+            })
+          );
+          setRunSummaryIsRaceMode(true);
           setStats({
             bfs: { visited: bfsVisited.length, path: bfsPathNodes.length },
             astar: { visited: astarVisited.length, path: astarPathNodes.length },
@@ -1169,10 +1243,12 @@ function App() {
       const start = copy[START_ROW][START_COL];
       const end = copy[END_ROW][END_COL];
 
+      const runStart = performance.now();
       const result =
         algorithm === 'bfs'
           ? bfs(copy, start, end, { withTrace: true })
           : astar(copy, start, end, { withTrace: true });
+      const durationMs = performance.now() - runStart;
 
       const visited = result.visitedNodesInOrder;
       const predictionOptions = isQuizMode ? result.predictionOptionsByIndex : null;
@@ -1183,6 +1259,15 @@ function App() {
       const pathNodes = end.isVisited
         ? getNodesInShortestPathOrder(end)
         : [];
+
+      const runResults = {
+        [algorithm]: {
+          visited: visited.length,
+          pathNodes,
+          formalTrace: traceByIndex,
+          durationMs,
+        },
+      };
 
       animateAlgorithm(
         visited,
@@ -1197,6 +1282,16 @@ function App() {
           setPausedComparison(null);
           setHoveredFrontierNode(null);
           clearNextChoiceHighlight();
+          setRunSummary(
+            buildRunSummary({
+              grid: cleanGrid,
+              runResults,
+              scoreState,
+              isQuizMode,
+              quizPromptInterval,
+            })
+          );
+          setRunSummaryIsRaceMode(false);
           setStats({
             [algorithm]: { visited: visited.length, path: pathNodes.length },
           });
@@ -1207,12 +1302,36 @@ function App() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grid, algorithm, isRaceMode, speed, quizPromptInterval, isVisualizing, isQuizMode, resetGamification]);
+  }, [
+    grid,
+    algorithm,
+    isRaceMode,
+    speed,
+    quizPromptInterval,
+    isVisualizing,
+    isQuizMode,
+    scoreState,
+    clearRunSummary,
+    resetGamification,
+  ]);
 
   const currentTrace =
     activeTraceIndex >= 0 && activeTraceIndex < formalTrace.length
       ? formalTrace[activeTraceIndex]
       : null;
+
+  const knowledgeSpaceSnapshot = useMemo(
+    () =>
+      buildKnowledgeSpaceSnapshot({
+        grid,
+        algorithm,
+        currentTrace,
+        formalTrace,
+        stats,
+        isRaceMode,
+      }),
+    [grid, algorithm, currentTrace, formalTrace, stats, isRaceMode]
+  );
 
   const activeHoverComparison = (() => {
     if (isRaceMode) return null;
@@ -1361,6 +1480,42 @@ function App() {
       ? scoreState.totalAttempts / scoreState.questionsAnswered
       : 0;
 
+  const raceResultComparison = useMemo(() => {
+    if (!isRaceMode || !stats?.bfs || !stats?.astar) return null;
+
+    const buildMetricComparison = (currentValue, otherValue) => {
+      if (currentValue === otherValue) {
+        return {
+          tone: 'equal',
+          note: `matches the other algorithm at ${currentValue}`,
+        };
+      }
+
+      if (currentValue < otherValue) {
+        return {
+          tone: 'lower',
+          note: `lower than the other algorithm (${otherValue})`,
+        };
+      }
+
+      return {
+        tone: 'higher',
+        note: `higher than the other algorithm (${otherValue})`,
+      };
+    };
+
+    return {
+      bfs: {
+        visited: buildMetricComparison(stats.bfs.visited, stats.astar.visited),
+        path: buildMetricComparison(stats.bfs.path, stats.astar.path),
+      },
+      astar: {
+        visited: buildMetricComparison(stats.astar.visited, stats.bfs.visited),
+        path: buildMetricComparison(stats.astar.path, stats.bfs.path),
+      },
+    };
+  }, [isRaceMode, stats]);
+
   // ── render ───────────────────────────────────────────────
   return (
     <div
@@ -1403,7 +1558,7 @@ function App() {
         algorithm={algorithm}
         onAlgorithmChange={setAlgorithm}
         isRaceMode={isRaceMode}
-        onRaceModeToggle={() => setIsRaceMode((v) => !v)}
+        onRaceModeToggle={handleRaceModeToggle}
         isQuizMode={isQuizMode}
         onQuizModeToggle={() => setIsQuizMode((v) => !v)}
         isObstacleMode={isObstacleMode}
@@ -1417,6 +1572,23 @@ function App() {
         label="Simulation State"
         value={getSimulationPhaseDisplay()}
       />
+
+      <RunSummaryModal
+        isOpen={isRunSummaryOpen}
+        summary={runSummary}
+        isRaceMode={runSummaryIsRaceMode}
+        onClose={() => setIsRunSummaryOpen(false)}
+      />
+
+      {runSummary && simulationPhase === 'done' && !isRunSummaryOpen && (
+        <button
+          type="button"
+          className="analysis-reopen-btn"
+          onClick={() => setIsRunSummaryOpen(true)}
+        >
+          View Formal Result Analysis
+        </button>
+      )}
 
       {isObstacleMode && (
         <div className="board-tip" role="note" aria-live="polite">
@@ -1627,9 +1799,35 @@ function App() {
               {stats && (
                 <div className="stats-container">
                   {Object.entries(stats).map(([key, { visited, path }]) => (
-                    <StatCard key={key} title={key === 'bfs' ? 'BFS' : 'A*'}>
-                      <p>Visited Nodes: <span className="stat-value">{visited}</span></p>
-                      <p>Path Length: <span className="stat-value">{path > 0 ? path : '—'}</span></p>
+                    <StatCard
+                      key={key}
+                      title={key === 'bfs' ? 'BFS traversal profile' : 'A* traversal profile'}
+                      className="stat-card-comparison"
+                    >
+                      <div className="stat-metric-row">
+                        <span className="stat-metric-label">Node expansions</span>
+                        <span
+                          className={`stat-metric-value stat-metric-value--${raceResultComparison?.[key]?.visited.tone ?? 'equal'}`}
+                        >
+                          {visited}
+                        </span>
+                        <span className="stat-metric-note">
+                          {raceResultComparison?.[key]?.visited.note}
+                        </span>
+                      </div>
+                      <div className="stat-metric-row">
+                        <span className="stat-metric-label">Shortest-path length</span>
+                        <span
+                          className={`stat-metric-value stat-metric-value--${raceResultComparison?.[key]?.path.tone ?? 'equal'}`}
+                        >
+                          {path > 0 ? path : '—'}
+                        </span>
+                        <span className="stat-metric-note">
+                          {path > 0
+                            ? raceResultComparison?.[key]?.path.note
+                            : 'No valid path recorded'}
+                        </span>
+                      </div>
                     </StatCard>
                   ))}
                 </div>
@@ -1715,7 +1913,123 @@ function App() {
 
         {!isRaceMode && (
           <aside className="side-panel">
-            <section className="formal-trace-panel">
+            <div className="side-panel-tabs" role="tablist" aria-label="Proof sidebar tabs">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={sidePanelTab === 'manifesto'}
+                className={`side-panel-tab ${sidePanelTab === 'manifesto' ? 'active' : ''}`}
+                onClick={() => setSidePanelTab('manifesto')}
+              >
+                Manifesto
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={sidePanelTab === 'trace'}
+                className={`side-panel-tab ${sidePanelTab === 'trace' ? 'active' : ''}`}
+                onClick={() => setSidePanelTab('trace')}
+              >
+                Mathematical Trace
+              </button>
+            </div>
+
+            <section
+              className="knowledge-space-panel"
+              role="tabpanel"
+              aria-label="Manifesto framework"
+              hidden={sidePanelTab !== 'manifesto'}
+            >
+              <div className="knowledge-panel-header">
+                <h2>{knowledgeSpaceSnapshot.title}</h2>
+              </div>
+
+              <div className="knowledge-triplet" aria-label="Knowledge space tuple">
+                <div className="knowledge-set-card">
+                  <span className="knowledge-set-symbol">A</span>
+                  <strong>Artifacts</strong>
+                  {knowledgeSpaceSnapshot.artifactSet.map((item) => (
+                    <p key={item.symbol}>
+                      <span>{item.symbol}</span> {item.label}: {item.value}
+                    </p>
+                  ))}
+                </div>
+                <div className="knowledge-set-card">
+                  <span className="knowledge-set-symbol">D</span>
+                  <strong>Documents</strong>
+                  {knowledgeSpaceSnapshot.documentSet.map((item) => (
+                    <p key={item.symbol}>
+                      <span>{item.symbol}</span> {item.label}: {item.value}
+                    </p>
+                  ))}
+                </div>
+                <div className="knowledge-set-card">
+                  <span className="knowledge-set-symbol">S</span>
+                  <strong>Schema</strong>
+                  <div className="schema-chip-list">
+                    {knowledgeSpaceSnapshot.schemaSet.map((item) => (
+                      <span key={item.symbol} className="schema-chip">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="knowledge-functions">
+                {knowledgeSpaceSnapshot.functions.map((fn) => (
+                  <div key={fn.name} className="knowledge-function-row">
+                    <span className="knowledge-function-name">{fn.name}</span>
+                    <div>
+                      <strong>{fn.label}</strong>
+                      <code>{fn.formula}</code>
+                      <p>{fn.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="retrieval-box">
+                <strong>D_rel</strong>
+                <code>{knowledgeSpaceSnapshot.retrievalExpression}</code>
+              </div>
+
+              {knowledgeSpaceSnapshot.activeStep && (
+                <div className="active-step-proof">
+                  <p>
+                    <strong>Current claim source:</strong>{' '}
+                    {knowledgeSpaceSnapshot.activeStep.expandedNode}
+                  </p>
+                  <p>{knowledgeSpaceSnapshot.activeStep.rule}</p>
+                </div>
+              )}
+
+              <div className="verification-list" aria-label="Verification constraints">
+                {knowledgeSpaceSnapshot.verificationClaims.length === 0 ? (
+                  <p className="verification-empty">
+                    Verification constraints appear when a trace step is available.
+                  </p>
+                ) : (
+                  knowledgeSpaceSnapshot.verificationClaims.map((claim) => (
+                    <div
+                      key={claim.id}
+                      className={`verification-item ${claim.holds ? 'verified' : 'unverified'}`}
+                    >
+                      <span>{claim.holds ? 'entails' : 'missing'}</span>
+                      <p>{claim.proposition}</p>
+                      <small>source: {claim.source}</small>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section
+              className="formal-trace-panel"
+              role="tabpanel"
+              aria-label="Mathematical trace"
+              hidden={sidePanelTab !== 'trace'}
+            >
               <h2>Mathematical Trace</h2>
 
               {isVisualizing && (
