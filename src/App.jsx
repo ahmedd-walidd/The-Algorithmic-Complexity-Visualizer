@@ -1,11 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import Grid from './components/Grid/Grid';
-import ControlPanel from './components/ControlPanel/ControlPanel';
-import IconFab from './components/common/IconFab/IconFab';
-import ModalShell from './components/common/ModalShell/ModalShell';
-import StatCard from './components/common/StatCard/StatCard';
-import StatusBadge from './components/common/StatusBadge/StatusBadge';
-import RunSummaryModal from './components/RunSummaryModal/RunSummaryModal';
+import AppChrome from './components/layout/AppChrome';
+import VisualizerWorkspace from './components/layout/VisualizerWorkspace';
+import TraceEquation from './components/panels/TraceEquation';
 import {
   createGrid,
   clearPath,
@@ -21,19 +17,38 @@ import { bfs } from './algorithms/bfs';
 import { astar } from './algorithms/astar';
 import { buildKnowledgeSpaceSnapshot } from './framework/knowledgeSpace';
 import { buildRunSummary } from './framework/runAnalysis';
+import { buildCsv, buildExportRows } from './utils/exportHelpers';
+import {
+  buildCorrectPredictionMessage,
+  buildWrongPredictionMessage,
+  calculateQuestionScore,
+} from './utils/predictionFeedback';
+import {
+  getActiveHoverComparison,
+  getHoveredNodeDecision,
+  getHoveredPreviewPaths,
+  getNextTraversalComparison,
+  getRaceResultComparison,
+  getScoreAverages,
+  getSimulationPhaseDisplay,
+} from './utils/visualizerDerivedState';
+import {
+  applyFrontierHoverHighlight,
+  applyNextChoiceHighlight,
+  applyPreviewPathHighlight,
+  clearFrontierHoverHighlight,
+  clearNextChoiceHighlight,
+  clearPreviewPathHighlight,
+  clearTimeoutQueue,
+  clearVisualizerDomClasses,
+  redrawRunTimeline,
+} from './utils/domHighlights';
 import useResponsiveCellSize from './hooks/useResponsiveCellSize';
 import './App.css';
 
 // Increased base delays so traversal is easier to follow visually.
 const SPEED_MS = { slow: 140, medium: 80, fast: 40 };
 const TIMELINE_JUMP_STEPS = 5;
-const RACE_CELL = 14; // smaller cells when two grids are side-by-side
-const GAMIFICATION_WEIGHTS = {
-  alpha: 0.9,
-  beta: 0.1,
-  maxQuestionScore: 100,
-};
-
 const DEFAULT_SETTINGS = {
   speed: 'medium',
   quizPromptInterval: 15,
@@ -46,69 +61,15 @@ const INITIAL_SCORE_STATE = {
   totalAttempts: 0,
   totalAccuracyScore: 0,
   totalResponseTime: 0,
+  questionHistory: [],
   lastQuestionScore: 0,
   lastAccuracy: 0,
   lastResponseTime: 0,
   lastAttempts: 0,
 };
 
-const EXPORT_COLUMNS = [
-  'Turn',
-  'Timestamp',
-  'Mode',
-  'Algorithm',
-  'Nodes Visited',
-  'Path Length',
-];
-
-function escapeCsvValue(value) {
-  const normalized = value ?? '';
-  const stringValue = String(normalized);
-  if (/[",\r\n]/.test(stringValue)) {
-    return `"${stringValue.replaceAll('"', '""')}"`;
-  }
-  return stringValue;
-}
-
-function buildExportRows({ turn, mode, runResults, createdAt = new Date().toISOString() }) {
-  return Object.entries(runResults).map(([algorithm, result]) => ({
-    Turn: turn,
-    Timestamp: createdAt,
-    Mode: mode,
-    Algorithm: algorithm === 'astar' ? 'A*' : 'BFS',
-    'Nodes Visited': result.visited,
-    'Path Length': result.pathNodes?.length || 0,
-  }));
-}
-
-function buildCsv(rows) {
-  const header = EXPORT_COLUMNS.join(',');
-  const body = rows.map((row) =>
-    EXPORT_COLUMNS.map((column) => escapeCsvValue(row[column])).join(',')
-  );
-  return [header, ...body].join('\n');
-}
-
-function buildPreviewPath(grid, start, end, algorithm) {
-  if (!grid?.length || !start || !end) return [];
-
-  const previewGrid = clearPath(cloneGrid(grid));
-  const startNode = previewGrid[start.row]?.[start.col];
-  const endNode = previewGrid[end.row]?.[end.col];
-
-  if (!startNode || !endNode) return [];
-
-  if (algorithm === 'astar') {
-    astar(previewGrid, startNode, endNode);
-  } else {
-    bfs(previewGrid, startNode, endNode);
-  }
-
-  return endNode.isVisited ? getNodesInShortestPathOrder(endNode) : [];
-}
-
 function App() {
-  // ── state ────────────────────────────────────────────────
+  // -- state --
   const [grid, setGrid] = useState(() => createGrid());
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [isObstacleMode, setIsObstacleMode] = useState(false);
@@ -130,7 +91,7 @@ function App() {
   const timeoutsRef = useRef([]);
   const obstacleDragModeRef = useRef(null);
 
-  // ── responsive cell size ─────────────────────────────────
+  // -- responsive cell size --
   const responsiveCellSize = useResponsiveCellSize(isRaceMode);
 
   const [isQuizMode, setIsQuizMode] = useState(false);
@@ -138,7 +99,6 @@ function App() {
   const [quizState, setQuizState] = useState({
     active: false,
     candidates: [],
-    nextCorrectIndex: -1,
     message: '',
     awaitingContinue: false,
     continueFunc: null,
@@ -154,22 +114,7 @@ function App() {
   const isObstaclePainting = isObstacleMode && isMousePressed;
   const pausedPhaseRef = useRef('idle');
 
-  const getSimulationPhaseDisplay = useCallback(() => {
-    switch (simulationPhase) {
-      case 'idle':
-        return 'Idle';
-      case 'paused':
-        return 'Paused';
-      case 'visited':
-        return 'Traversing...';
-      case 'path':
-        return 'Showing Path...';
-      case 'done':
-        return 'Done';
-      default:
-        return 'Idle';
-    }
-  }, [simulationPhase]);
+  const simulationPhaseDisplay = getSimulationPhaseDisplay(simulationPhase);
 
   const isPausedRef = useRef(false);
   const isQuizModeRef = useRef(false);
@@ -197,49 +142,6 @@ function App() {
     stepFunc: null,
   });
 
-  const buildWrongPredictionMessage = useCallback((row, col, state) => {
-    const key = `${row}-${col}`;
-    const clicked = state?.frontierByKey?.[key];
-    const ruleMeta = state?.ruleMeta;
-
-    if (!clicked || !ruleMeta) {
-      return 'Incorrect. Formal rule: the next expansion must satisfy the algorithm ordering rule over the current frontier.';
-    }
-
-    if (ruleMeta.algorithm === 'astar') {
-      const clickedF = clicked.f;
-      const clickedH = clicked.h;
-      const minF = ruleMeta.minF;
-      const minH = ruleMeta.minHAmongMinF;
-
-      if (clickedF > minF) {
-        return `Incorrect: this node has f=${clickedF} (g+h=${clicked.g}+${clicked.h}), but A* must choose minimum frontier f=${minF}.`;
-      }
-
-      return `Incorrect: this node ties on f=${clickedF}, but its h=${clickedH} is larger than the minimum tie-break h=${minH}.`;
-    }
-
-    const clickedG = clicked.g;
-    const minG = ruleMeta.minG;
-    return `Incorrect: this node has depth g=${clickedG}, but BFS expands minimum frontier depth first (h=0 ⇒ f=g), so next must have g=${minG}.`;
-  }, []);
-
-  const buildCorrectPredictionMessage = useCallback((row, col, state) => {
-    const key = `${row}-${col}`;
-    const clicked = state?.frontierByKey?.[key];
-    const ruleMeta = state?.ruleMeta;
-
-    if (!clicked || !ruleMeta) {
-      return 'Correct. This node satisfies the algorithm ordering rule for the current frontier. Press Continue.';
-    }
-
-    if (ruleMeta.algorithm === 'astar') {
-      return `Correct: this node has minimum frontier f=${ruleMeta.minF}, and tie-break minimum h=${ruleMeta.minHAmongMinF}. (g+h=${clicked.g}+${clicked.h}=${clicked.f}) Press Continue.`;
-    }
-
-    return `Correct: this node has minimum frontier depth g=${ruleMeta.minG}. In BFS, h=0 so f=g, therefore it is a valid next expansion. Press Continue.`;
-  }, []);
-
   const applyObstacleState = useCallback((row, col, isWall) => {
     if (row === START_ROW && col === START_COL) return;
     if (row === END_ROW && col === END_COL) return;
@@ -254,7 +156,7 @@ function App() {
     });
   }, []);
 
-  const showPositiveGamifiedText = useCallback((row, col, text) => {
+  const showGamifiedPopup = useCallback((row, col, text, type = 'positive') => {
     const ids = [`node-${row}-${col}`, `bfs-node-${row}-${col}`, `astar-node-${row}-${col}`];
     let el = null;
     for (const id of ids) {
@@ -265,7 +167,7 @@ function App() {
 
     const rect = el.getBoundingClientRect();
     const floater = document.createElement('div');
-    floater.className = 'node-gamified-popup node-gamified-popup-positive';
+    floater.className = `node-gamified-popup node-gamified-popup-${type}`;
     floater.innerText = text;
     floater.style.left = `${rect.left + rect.width / 2}px`;
     floater.style.top = `${rect.top - 10}px`;
@@ -285,21 +187,6 @@ function App() {
       selectedKeys: new Set(),
       awarded: false,
       correctKey: null,
-    };
-  }, []);
-
-  const calculateQuestionScore = useCallback((attempts, responseTimeMs) => {
-    const accuracy = attempts > 0 ? 1 / attempts : 0;
-    const responseSeconds = Math.max(responseTimeMs / 1000, 0);
-    const responseComponent = 1 / (1 + responseSeconds);
-    const rawScore =
-      GAMIFICATION_WEIGHTS.alpha * accuracy + GAMIFICATION_WEIGHTS.beta * responseComponent;
-
-    return {
-      accuracy,
-      responseSeconds,
-      responseComponent,
-      questionScore: Math.round(rawScore * GAMIFICATION_WEIGHTS.maxQuestionScore),
     };
   }, []);
 
@@ -412,7 +299,7 @@ function App() {
     setSettingsDraft(DEFAULT_SETTINGS);
   }, []);
 
-  // ── wall drawing / quiz clicks ─────────────────────────
+  // Wall drawing / quiz clicks
   const handleMouseDown = useCallback(
     (row, col, event) => {
       if (event?.button !== undefined && event.button !== 0) return;
@@ -474,6 +361,15 @@ function App() {
             totalAttempts: prev.totalAttempts + attemptsUsed,
             totalAccuracyScore: prev.totalAccuracyScore + scoring.accuracy,
             totalResponseTime: prev.totalResponseTime + scoring.responseSeconds,
+            questionHistory: [
+              ...prev.questionHistory,
+              {
+                accuracy: scoring.accuracy,
+                attempts: attemptsUsed,
+                responseSeconds: scoring.responseSeconds,
+                questionScore: scoring.questionScore,
+              },
+            ],
             lastQuestionScore: scoring.questionScore,
             lastAccuracy: scoring.accuracy,
             lastResponseTime: scoring.responseSeconds,
@@ -485,8 +381,6 @@ function App() {
             ...prev,
             awaitingContinue: true,
             feedbackType: 'correct',
-            attemptCount: attemptsUsed,
-            scoreBreakdown: scoring,
             message: detailedMessage,
           }));
 
@@ -496,18 +390,18 @@ function App() {
           const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
           if (el) el.classList.add('node-prediction-correct');
 
-          showPositiveGamifiedText(row, col, `+${scoring.questionScore}`);
+          showGamifiedPopup(row, col, `+${scoring.questionScore}`, 'positive');
         } else {
             // Wrong answer
             const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
             if (el) el.classList.add('node-prediction-wrong');
 
+          showGamifiedPopup(row, col, 'Miss!', 'negative');
           const detailedMessage = buildWrongPredictionMessage(row, col, quizState);
           setQuizState(prev => ({
             ...prev,
             feedbackType: 'incorrect',
             message: detailedMessage,
-            attemptCount: quizProgressRef.current.attempts,
             // Keep Continue visible if the learner already selected a valid next node.
             awaitingContinue: prev.awaitingContinue,
           }));
@@ -533,10 +427,7 @@ function App() {
       isPaused,
       grid,
       isObstacleMode,
-      buildWrongPredictionMessage,
-      buildCorrectPredictionMessage,
-      calculateQuestionScore,
-      showPositiveGamifiedText,
+      showGamifiedPopup,
       applyObstacleState,
     ]
   );
@@ -596,103 +487,10 @@ function App() {
     obstacleDragModeRef.current = null;
   }, []);
 
-  // ── helpers ──────────────────────────────────────────────
+  // DOM highlight helpers
   const clearAllTimeouts = () => {
-    timeoutsRef.current.forEach((t) => clearTimeout(t));
-    timeoutsRef.current = [];
+    clearTimeoutQueue(timeoutsRef);
   };
-
-  const clearNextChoiceHighlight = useCallback(() => {
-    document.querySelectorAll('.node-next-choice').forEach((el) => {
-      el.classList.remove('node-next-choice');
-    });
-  }, []);
-
-  const clearFrontierHoverHighlight = useCallback(() => {
-    document.querySelectorAll('.node-frontier-hoverable').forEach((el) => {
-      el.classList.remove('node-frontier-hoverable');
-    });
-  }, []);
-
-  const clearPreviewPathHighlight = useCallback(() => {
-    document.querySelectorAll('.node-hover-preview-path').forEach((el) => {
-      el.classList.remove(
-        'node-hover-preview-path',
-        'node-hover-preview-path-source',
-        'node-hover-preview-path-goal',
-        'node-hover-preview-forward',
-        'node-hover-preview-backward'
-      );
-      delete el.dataset.forwardLabel;
-      delete el.dataset.backwardLabel;
-    });
-  }, []);
-
-  const applyNextChoiceHighlight = useCallback((nodes, prefix = '') => {
-    clearNextChoiceHighlight();
-    (nodes || []).forEach((n) => {
-      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
-      if (!el) return;
-      if (el.classList.contains('node-wall')) return;
-      el.classList.add('node-next-choice');
-    });
-  }, [clearNextChoiceHighlight]);
-
-  const applyFrontierHoverHighlight = useCallback((nodes, prefix = '') => {
-    clearFrontierHoverHighlight();
-    (nodes || []).forEach((n) => {
-      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
-      if (!el) return;
-      if (el.classList.contains('node-wall')) return;
-      el.classList.add('node-frontier-hoverable');
-    });
-  }, [clearFrontierHoverHighlight]);
-
-  const applyPreviewPathHighlight = useCallback((nodes, options = {}) => {
-    const {
-      prefix = '',
-      kind = 'forward',
-      labelMode = 'remaining',
-      goalRow = END_ROW,
-      goalCol = END_COL,
-      clearBefore = false,
-    } = options;
-
-    if (clearBefore) clearPreviewPathHighlight();
-
-    const isForward = kind === 'forward';
-    const totalSteps = Math.max((nodes || []).length - 1, 0);
-
-    (nodes || []).forEach((n, index) => {
-      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
-      if (!el) return;
-      if (el.classList.contains('node-wall')) return;
-      el.classList.add('node-hover-preview-path');
-      el.classList.add(isForward ? 'node-hover-preview-forward' : 'node-hover-preview-backward');
-
-      if (index === 0) {
-        el.classList.add('node-hover-preview-path-source');
-      }
-      if (index === nodes.length - 1) {
-        el.classList.add('node-hover-preview-path-goal');
-      }
-
-      const labelValue = (() => {
-        if (labelMode === 'heuristic') {
-          return Math.abs(n.row - goalRow) + Math.abs(n.col - goalCol);
-        }
-        if (labelMode === 'remaining') {
-          return totalSteps - index;
-        }
-        return index;
-      })();
-      if (isForward) {
-        el.dataset.forwardLabel = String(labelValue);
-      } else {
-        el.dataset.backwardLabel = String(labelValue);
-      }
-    });
-  }, [clearPreviewPathHighlight]);
 
   const resetRunState = useCallback(() => {
     runStateRef.current = {
@@ -711,124 +509,41 @@ function App() {
     };
   }, [quizPromptInterval]);
 
-  const clearDomClasses = () => {
-    ['', 'bfs-', 'astar-'].forEach((prefix) => {
-      document
-        .querySelectorAll(`[id^="${prefix}node-"]`)
-        .forEach((el) =>
-          el.classList.remove(
-            'node-visited',
-            'node-shortest-path',
-            'node-prediction-candidate',
-            'node-prediction-wrong',
-            'node-prediction-correct',
-            'node-prediction-not-correct',
-            'node-frontier-hoverable',
-            'node-next-choice'
-          )
-        );
-    });
-  };
+  const resetVisualizationState = useCallback(({ resetScore = true } = {}) => {
+    setStats(null);
+    setIsVisualizing(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    if (resetScore) resetGamification();
+    setFormalTrace([]);
+    setActiveTraceIndex(-1);
+    setPausedComparison(null);
+    setHoveredFrontierNode(null);
+    setTraceNotice('');
+    setSimulationPhase('idle');
+    pausedPhaseRef.current = 'idle';
+  }, [resetGamification]);
 
-  const redrawRunTimeline = useCallback((run) => {
-    if (!run) return;
-
-    document
-      .querySelectorAll(`[id^="${run.prefix}node-"]`)
-      .forEach((el) => {
-        el.classList.remove('node-visited', 'node-shortest-path');
-      });
-
-    run.visited.slice(0, run.visitedIndex).forEach((n) => {
-      const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
-      if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
-        el.classList.add('node-visited');
-      }
-    });
-
-    run.path.slice(0, run.pathIndex).forEach((n) => {
-      const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
-      if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
-        el.classList.remove('node-visited');
-        el.classList.add('node-shortest-path');
-      }
-    });
-  }, []);
-
-  const getNextTraversalComparison = useCallback(() => {
-    if (isRaceMode) return null;
-
-    const run = runStateRef.current;
-    if (run.phase !== 'visited') return null;
-
-    const nextIndex = run.visitedIndex;
-    const nextTrace = formalTraceRef.current[nextIndex];
-    if (!nextTrace) return null;
-
-    const frontier = nextTrace.frontierBeforeExpansion || [];
-    if (frontier.length === 0) {
-      return {
-        stepIndex: nextIndex,
-        chosenNode: nextTrace.expandedNode,
-        chosenScores: nextTrace.expandedScores,
-        frontierNodes: [],
-        candidateNodes: [],
-        minComparison: null,
-        algorithm: nextTrace.algorithm,
-      };
-    }
-
-    if (nextTrace.algorithm === 'astar') {
-      const minF = Math.min(...frontier.map((n) => n.f));
-      const minHAmongMinF = Math.min(
-        ...frontier.filter((n) => n.f === minF).map((n) => n.h)
-      );
-      const candidateNodes = frontier
-        .filter((n) => n.f === minF && n.h === minHAmongMinF)
-        .map((n) => ({ row: n.row, col: n.col, g: n.g, h: n.h, f: n.f }));
-
-      return {
-        stepIndex: nextIndex,
-        chosenNode: nextTrace.expandedNode,
-        chosenScores: nextTrace.expandedScores,
-        frontierNodes: frontier.map((n) => ({ row: n.row, col: n.col, g: n.g, h: n.h, f: n.f })),
-        candidateNodes,
-        minComparison: {
-          minF,
-          minHAmongMinF,
-        },
-        algorithm: nextTrace.algorithm,
-      };
-    }
-
-    const minG = Math.min(...frontier.map((n) => n.g));
-    const candidateNodes = frontier
-      .filter((n) => n.g === minG)
-      .map((n) => ({ row: n.row, col: n.col, g: n.g, h: 0, f: n.g }));
-
-    return {
-      stepIndex: nextIndex,
-      chosenNode: nextTrace.expandedNode,
-      chosenScores: nextTrace.expandedScores,
-      frontierNodes: frontier.map((n) => ({ row: n.row, col: n.col, g: n.g, h: 0, f: n.g })),
-      candidateNodes,
-      minComparison: {
-        minG,
-      },
-      algorithm: nextTrace.algorithm,
-    };
-  }, [isRaceMode]);
+  const getNextComparison = useCallback(
+    () =>
+      getNextTraversalComparison({
+        isRaceMode,
+        run: runStateRef.current,
+        formalTrace: formalTraceRef.current,
+      }),
+    [isRaceMode]
+  );
 
   const pauseRun = useCallback(() => {
     clearAllTimeouts();
     pausedPhaseRef.current = runStateRef.current.phase;
     setSimulationPhase('paused');
-    const comparison = getNextTraversalComparison();
+    const comparison = getNextComparison();
     setPausedComparison(comparison);
     setHoveredFrontierNode(null);
     applyFrontierHoverHighlight(comparison?.frontierNodes || []);
     applyNextChoiceHighlight(comparison?.candidateNodes || []);
-  }, [getNextTraversalComparison, applyNextChoiceHighlight, applyFrontierHoverHighlight]);
+  }, [getNextComparison]);
 
   const resumeRun = useCallback(() => {
     clearNextChoiceHighlight();
@@ -846,7 +561,7 @@ function App() {
       runStateRef.current.stepFunc?.();
     }, delay);
     timeoutsRef.current.push(t);
-  }, [clearNextChoiceHighlight, clearFrontierHoverHighlight]);
+  }, []);
 
   const scheduleRunTick = useCallback(() => {
     const run = runStateRef.current;
@@ -908,7 +623,7 @@ function App() {
 
       if (isPausedRef.current) {
         pausedPhaseRef.current = run.phase;
-        const comparison = getNextTraversalComparison();
+        const comparison = getNextComparison();
         setPausedComparison(comparison);
         applyFrontierHoverHighlight(comparison?.frontierNodes || []);
         applyNextChoiceHighlight(comparison?.candidateNodes || []);
@@ -918,14 +633,9 @@ function App() {
       scheduleRunTick();
     },
     [
-      applyFrontierHoverHighlight,
-      applyNextChoiceHighlight,
-      clearFrontierHoverHighlight,
-      clearNextChoiceHighlight,
-      getNextTraversalComparison,
+      getNextComparison,
       isRaceMode,
       isVisualizing,
-      redrawRunTimeline,
       scheduleRunTick,
     ]
   );
@@ -968,71 +678,40 @@ function App() {
     };
   }, [togglePause, isVisualizing, isRaceMode]);
 
-  // ── control-panel actions ────────────────────────────────
+  // Control-panel actions
   const handleGenerateMaze = useCallback(() => {
     clearAllTimeouts();
-    clearDomClasses();
+    clearVisualizerDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
     setGrid((prev) => generateMaze(prev));
-    setStats(null);
-    setIsVisualizing(false);
-    setIsPaused(false);
-    isPausedRef.current = false;
-    resetGamification();
-    setFormalTrace([]);
-    setActiveTraceIndex(-1);
-    setPausedComparison(null);
-    setHoveredFrontierNode(null);
-    setTraceNotice('');
-    setSimulationPhase('idle');
-    pausedPhaseRef.current = 'idle';
-  }, [clearNextChoiceHighlight, clearRunSummary, resetGamification, resetRunState]);
+    resetVisualizationState();
+  }, [clearRunSummary, resetRunState, resetVisualizationState]);
 
   const handleClearBoard = useCallback(() => {
     clearAllTimeouts();
-    clearDomClasses();
+    clearVisualizerDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
     setGrid(createGrid());
-    setStats(null);
-    setIsVisualizing(false);
-    setIsPaused(false);
-    isPausedRef.current = false;
-    resetGamification();
-    setFormalTrace([]);
-    setActiveTraceIndex(-1);
-    setPausedComparison(null);
-    setHoveredFrontierNode(null);
-    setTraceNotice('');
-    pausedPhaseRef.current = 'idle';
-  }, [clearNextChoiceHighlight, clearRunSummary, resetGamification, resetRunState]);
+    resetVisualizationState();
+  }, [clearRunSummary, resetRunState, resetVisualizationState]);
 
   const handleClearPath = useCallback(() => {
     clearAllTimeouts();
-    clearDomClasses();
+    clearVisualizerDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
     setGrid((prev) => clearPath(prev));
-    setStats(null);
-    setIsVisualizing(false);
-    setIsPaused(false);
-    isPausedRef.current = false;
-    resetGamification();
-    setFormalTrace([]);
-    setActiveTraceIndex(-1);
-    setPausedComparison(null);
-    setHoveredFrontierNode(null);
-    setTraceNotice('');
-    pausedPhaseRef.current = 'idle';
-  }, [clearNextChoiceHighlight, clearRunSummary, resetGamification, resetRunState]);
+    resetVisualizationState();
+  }, [clearRunSummary, resetRunState, resetVisualizationState]);
 
   const handleRaceModeToggle = useCallback(() => {
     clearAllTimeouts();
-    clearDomClasses();
+    clearVisualizerDomClasses();
     clearNextChoiceHighlight();
     clearFrontierHoverHighlight();
     clearPreviewPathHighlight();
@@ -1040,26 +719,15 @@ function App() {
     clearRunSummary();
 
     setIsRaceMode((value) => !value);
-    setIsVisualizing(false);
-    setIsPaused(false);
-    isPausedRef.current = false;
-    pausedPhaseRef.current = 'idle';
-    setStats(null);
-    setFormalTrace([]);
-    setActiveTraceIndex(-1);
-    setPausedComparison(null);
-    setHoveredFrontierNode(null);
-    setTraceNotice('');
+    resetVisualizationState({ resetScore: false });
   }, [
-    clearFrontierHoverHighlight,
-    clearNextChoiceHighlight,
-    clearPreviewPathHighlight,
     clearRunSummary,
     resetRunState,
+    resetVisualizationState,
   ]);
 
-  // ── animation engine ─────────────────────────────────────
-  const animateAlgorithm = (visited, path, prefix, ms, optionsByIndex, onDone, onStep) => {
+  // Animation engine
+  const animateAlgorithm = useCallback((visited, path, prefix, ms, optionsByIndex, onDone, onStep) => {
     if (visited.length === 0) {
       onDone?.();
       return;
@@ -1259,9 +927,9 @@ function App() {
 
     runStateRef.current.stepFunc = step;
     step();
-  };
+  }, [quizPromptInterval]);
 
-  const animateAlgorithmRace = (visited, path, prefix, ms, onDone, onPathStart) => {
+  const animateAlgorithmRace = useCallback((visited, path, prefix, ms, onDone, onPathStart) => {
     if (visited.length === 0) {
       onDone?.();
       return;
@@ -1316,14 +984,14 @@ function App() {
     };
 
     visitStep();
-  };
+  }, []);
 
-  // ── visualise (single or race) ───────────────────────────
+  // Visualize (single or race)
   const handleVisualize = useCallback(() => {
     if (isVisualizing) return;
 
     clearAllTimeouts();
-    clearDomClasses();
+    clearVisualizerDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
@@ -1345,7 +1013,7 @@ function App() {
     runStateRef.current.pauseInterval = quizPromptInterval;
 
     if (isRaceMode) {
-      /* ── race: run both algorithms on independent copies ── */
+      // Race: run both algorithms on independent copies.
       const gBfs = cloneGrid(cleanGrid);
       const gAstar = cloneGrid(cleanGrid);
 
@@ -1416,7 +1084,7 @@ function App() {
       animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone, onPathStart);
       animateAlgorithmRace(astarVisited, astarPathNodes, 'astar-', ms, onDone, onPathStart);
     } else {
-      /* ── single algorithm ── */
+      // Single algorithm.
       const copy = cloneGrid(cleanGrid);
       const start = copy[START_ROW][START_COL];
       const end = copy[END_ROW][END_COL];
@@ -1480,8 +1148,10 @@ function App() {
         }
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    animateAlgorithm,
+    animateAlgorithmRace,
+    appendExportRows,
     grid,
     algorithm,
     isRaceMode,
@@ -1492,7 +1162,7 @@ function App() {
     scoreState,
     clearRunSummary,
     resetGamification,
-    appendExportRows,
+    resetRunState,
   ]);
 
   const currentTrace =
@@ -1513,120 +1183,24 @@ function App() {
     [grid, algorithm, currentTrace, formalTrace, stats, isRaceMode]
   );
 
-  const activeHoverComparison = (() => {
-    if (isRaceMode) return null;
-
-    if (isPaused && pausedComparison) {
-      return {
-        algorithm: pausedComparison.algorithm,
-        minComparison: pausedComparison.minComparison,
-      };
-    }
-
-    if (quizState.active && quizState.ruleMeta) {
-      return {
-        algorithm: quizState.ruleMeta.algorithm,
-        minComparison:
-          quizState.ruleMeta.algorithm === 'astar'
-            ? {
-                minF: quizState.ruleMeta.minF,
-                minHAmongMinF: quizState.ruleMeta.minHAmongMinF,
-              }
-            : {
-                minG: quizState.ruleMeta.minG,
-              },
-      };
-    }
-
-    return null;
-  })();
+  const activeHoverComparison = useMemo(
+    () => getActiveHoverComparison({ isRaceMode, isPaused, pausedComparison, quizState }),
+    [isRaceMode, isPaused, pausedComparison, quizState]
+  );
 
   const renderTraceEquation = useCallback((scores) => {
-    if (!scores) return null;
-
-    const gTone = 'path';
-    const hTone = 'visited';
-    const fTone = 'neutral';
-
-    return (
-      <span className="trace-equation">
-        <span className="trace-equation-token trace-equation-token-neutral">f(n)</span>
-        <span className="trace-equation-equals">=</span>
-        <span className="trace-equation-token trace-equation-token-path">g(n)</span>
-        <span className="trace-equation-equals">+</span>
-        <span className="trace-equation-token trace-equation-token-visited">h(n)</span>
-        <span className="trace-equation-equals">=</span>
-        <span className={`trace-equation-value trace-equation-value-${gTone}`}>{scores.g}</span>
-        <span className="trace-equation-equals">+</span>
-        <span className={`trace-equation-value trace-equation-value-${hTone}`}>{scores.h}</span>
-        <span className="trace-equation-equals">=</span>
-        <span className={`trace-equation-value trace-equation-value-${fTone}`}>{scores.f}</span>
-      </span>
-    );
+    return <TraceEquation scores={scores} />;
   }, []);
 
-  const hoveredNodeDecision = (() => {
-    if (!hoveredFrontierNode || !activeHoverComparison) return { text: '', tone: '' };
+  const hoveredNodeDecision = useMemo(
+    () => getHoveredNodeDecision(hoveredFrontierNode, activeHoverComparison),
+    [hoveredFrontierNode, activeHoverComparison]
+  );
 
-    if (activeHoverComparison.algorithm === 'astar') {
-      const minF = activeHoverComparison.minComparison?.minF;
-      const minHAmongMinF = activeHoverComparison.minComparison?.minHAmongMinF;
-      const hasMinF = hoveredFrontierNode.f === minF;
-      const hasBestTieBreak = hoveredFrontierNode.h === minHAmongMinF;
-
-      if (hasMinF && hasBestTieBreak) {
-        return {
-          text: 'Would be chosen next: minimum frontier f and minimum tie-break h.',
-          tone: 'chosen',
-        };
-      }
-
-      if (!hasMinF) {
-        return {
-          text: `Not chosen yet: f=${hoveredFrontierNode.f} is larger than frontier minimum f=${minF}.`,
-          tone: 'not-chosen',
-        };
-      }
-
-      return {
-        text: `Not chosen yet: ties on f=${hoveredFrontierNode.f}, but h=${hoveredFrontierNode.h} is larger than minimum tie-break h=${minHAmongMinF}.`,
-        tone: 'not-chosen',
-      };
-    }
-
-    const minG = activeHoverComparison.minComparison?.minG;
-    if (hoveredFrontierNode.g === minG) {
-      return {
-        text: 'Would be chosen next: minimum frontier depth g (BFS queue rule).',
-        tone: 'chosen',
-      };
-    }
-    return {
-      text: `Not chosen yet: depth g=${hoveredFrontierNode.g} is larger than frontier minimum g=${minG}.`,
-      tone: 'not-chosen',
-    };
-  })();
-
-  const hoveredForwardPreviewPath = useMemo(() => {
-    if (!hoveredFrontierNode || !activeHoverComparison) return [];
-    if (activeHoverComparison.algorithm !== 'astar') return [];
-    return buildPreviewPath(
-      grid,
-      { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
-      { row: END_ROW, col: END_COL },
-      activeHoverComparison.algorithm
-    );
-  }, [grid, hoveredFrontierNode, activeHoverComparison]);
-
-  const hoveredBackwardPreviewPath = useMemo(() => {
-    if (!hoveredFrontierNode || !activeHoverComparison) return [];
-    return buildPreviewPath(
-      grid,
-      { row: START_ROW, col: START_COL },
-      { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
-      'bfs'
-    );
-  }, [grid, hoveredFrontierNode, activeHoverComparison]);
+  const { hoveredForwardPreviewPath, hoveredBackwardPreviewPath } = useMemo(
+    () => getHoveredPreviewPaths({ grid, hoveredFrontierNode, activeHoverComparison }),
+    [grid, hoveredFrontierNode, activeHoverComparison]
+  );
 
   useEffect(() => {
     clearPreviewPathHighlight();
@@ -1647,637 +1221,84 @@ function App() {
     hoveredForwardPreviewPath,
     hoveredBackwardPreviewPath,
     activeHoverComparison,
-    applyPreviewPathHighlight,
-    clearPreviewPathHighlight,
   ]);
 
-  const averageTryAccuracy =
-    scoreState.questionsAnswered > 0
-      ? scoreState.totalAccuracyScore / scoreState.questionsAnswered
-      : 0;
-  const averageTriesPerQuestion =
-    scoreState.questionsAnswered > 0
-      ? scoreState.totalAttempts / scoreState.questionsAnswered
-      : 0;
+  const { averageTryAccuracy, averageTriesPerQuestion } = getScoreAverages(scoreState);
 
-  const raceResultComparison = useMemo(() => {
-    if (!isRaceMode || !stats?.bfs || !stats?.astar) return null;
+  const raceResultComparison = useMemo(
+    () => getRaceResultComparison({ isRaceMode, stats }),
+    [isRaceMode, stats]
+  );
 
-    const buildMetricComparison = (currentValue, otherValue) => {
-      if (currentValue === otherValue) {
-        return {
-          tone: 'equal',
-          note: `matches the other algorithm at ${currentValue}`,
-        };
-      }
-
-      if (currentValue < otherValue) {
-        return {
-          tone: 'lower',
-          note: `lower than the other algorithm (${otherValue})`,
-        };
-      }
-
-      return {
-        tone: 'higher',
-        note: `higher than the other algorithm (${otherValue})`,
-      };
-    };
-
-    return {
-      bfs: {
-        visited: buildMetricComparison(stats.bfs.visited, stats.astar.visited),
-        path: buildMetricComparison(stats.bfs.path, stats.astar.path),
-      },
-      astar: {
-        visited: buildMetricComparison(stats.astar.visited, stats.bfs.visited),
-        path: buildMetricComparison(stats.astar.path, stats.bfs.path),
-      },
-    };
-  }, [isRaceMode, stats]);
-
-  // ── render ───────────────────────────────────────────────
+  // Render
   return (
     <div
       className={`app${isObstacleMode ? ' obstacle-mode' : ''}${isObstaclePainting ? ' obstacle-painting' : ''}`}
       onMouseLeave={handleMouseUp}
     >
-      <h1 className="app-title">
-        <span className="app-title-top">The Algorithmic Complexity</span>
-        <span className="app-title-bottom">Visualizer</span>
-      </h1>
-
-      <IconFab
-        className="icon-fab--settings"
-        onClick={openSettings}
-        aria-haspopup="dialog"
-        aria-expanded={isSettingsOpen}
-        aria-label="Open settings"
-        title="Open settings"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="icon-fab-icon">
-          <path d="M19.14 12.94a7.43 7.43 0 0 0 .05-.94c0-.32-.02-.63-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.25 7.25 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42H9.28a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L1.88 7.84a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2 13.52a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.72a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.12-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.02-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
-        </svg>
-      </IconFab>
-
-      <IconFab
-        className="icon-fab--legend"
-        onClick={openLegend}
-        aria-haspopup="dialog"
-        aria-expanded={isLegendOpen}
-        aria-label="Open legend"
-        title="Open legend"
-      >
-        ?
-      </IconFab>
-
-      <ControlPanel
-        onGenerateMaze={handleGenerateMaze}
-        onClearBoard={handleClearBoard}
-        onClearPath={handleClearPath}
+      <AppChrome
         algorithm={algorithm}
-        onAlgorithmChange={setAlgorithm}
-        isRaceMode={isRaceMode}
-        onRaceModeToggle={handleRaceModeToggle}
-        isQuizMode={isQuizMode}
-        onQuizModeToggle={() => setIsQuizMode((v) => !v)}
+        averageTriesPerQuestion={averageTriesPerQuestion}
+        averageTryAccuracy={averageTryAccuracy}
+        closeLegend={closeLegend}
+        closeSettings={closeSettings}
+        exportRows={exportRows}
+        handleClearBoard={handleClearBoard}
+        handleClearPath={handleClearPath}
+        handleExportData={handleExportData}
+        handleGenerateMaze={handleGenerateMaze}
+        handleRaceModeToggle={handleRaceModeToggle}
+        handleVisualize={handleVisualize}
+        isLegendOpen={isLegendOpen}
         isObstacleMode={isObstacleMode}
-        onObstacleModeToggle={() => setIsObstacleMode((v) => !v)}
-        onVisualize={handleVisualize}
+        isPaused={isPaused}
+        isQuizMode={isQuizMode}
+        isRaceMode={isRaceMode}
+        isRunSummaryOpen={isRunSummaryOpen}
+        isSettingsOpen={isSettingsOpen}
         isVisualizing={isVisualizing}
-        isTimelineControlDisabled={!isVisualizing || isRaceMode || quizState.active}
-        onRewind={() => jumpTimeline('backward')}
-        onFastForward={() => jumpTimeline('forward')}
-        onExportData={handleExportData}
-        exportRowCount={exportRows.length}
+        jumpTimeline={jumpTimeline}
+        openLegend={openLegend}
+        openSettings={openSettings}
+        quizState={quizState}
+        resetSettingsToDefaults={resetSettingsToDefaults}
+        runSummary={runSummary}
+        runSummaryIsRaceMode={runSummaryIsRaceMode}
+        saveSettings={saveSettings}
+        scorePopup={scorePopup}
+        scoreState={scoreState}
+        setAlgorithm={setAlgorithm}
+        setIsObstacleMode={setIsObstacleMode}
+        setIsQuizMode={setIsQuizMode}
+        setIsRunSummaryOpen={setIsRunSummaryOpen}
+        setSettingsDraft={setSettingsDraft}
+        settingsDraft={settingsDraft}
+        simulationPhase={simulationPhase}
+        simulationPhaseDisplay={simulationPhaseDisplay}
       />
 
-      <StatusBadge
-        className={`status-badge-${simulationPhase}`}
-        label="Simulation State"
-        value={getSimulationPhaseDisplay()}
+      <VisualizerWorkspace
+        activeHoverComparison={activeHoverComparison}
+        currentTrace={currentTrace}
+        formalTrace={formalTrace}
+        grid={grid}
+        handleMouseDown={handleMouseDown}
+        handleMouseEnter={handleMouseEnter}
+        handleMouseUp={handleMouseUp}
+        hoveredFrontierNode={hoveredFrontierNode}
+        hoveredNodeDecision={hoveredNodeDecision}
+        isPaused={isPaused}
+        isRaceMode={isRaceMode}
+        isVisualizing={isVisualizing}
+        knowledgeSpaceSnapshot={knowledgeSpaceSnapshot}
+        raceResultComparison={raceResultComparison}
+        renderTraceEquation={renderTraceEquation}
+        responsiveCellSize={responsiveCellSize}
+        setSidePanelTab={setSidePanelTab}
+        sidePanelTab={sidePanelTab}
+        stats={stats}
+        traceNotice={traceNotice}
       />
-
-      <RunSummaryModal
-        isOpen={isRunSummaryOpen}
-        summary={runSummary}
-        isRaceMode={runSummaryIsRaceMode}
-        onClose={() => setIsRunSummaryOpen(false)}
-      />
-
-      {runSummary && simulationPhase === 'done' && !isRunSummaryOpen && (
-        <button
-          type="button"
-          className="analysis-reopen-btn"
-          onClick={() => setIsRunSummaryOpen(true)}
-        >
-          View Formal Result Analysis
-        </button>
-      )}
-
-      {isObstacleMode && (
-        <div className="board-tip" role="note" aria-live="polite">
-          Hold left click and drag to paint obstacles. Start on a wall to erase while dragging. Press Esc to exit obstacle mode.
-        </div>
-      )}
-
-      {isSettingsOpen && (
-        <ModalShell
-          className="modal-shell--settings"
-          titleId="settings-title"
-          kicker="Preferences"
-          title="Simulation Settings"
-          onClose={closeSettings}
-          footer={(
-            <>
-              <button type="button" className="settings-secondary-btn" onClick={closeSettings}>
-                Cancel
-              </button>
-              <button type="button" className="settings-primary-btn" onClick={saveSettings}>
-                Apply Settings
-              </button>
-            </>
-          )}
-        >
-          <section className="settings-card">
-            <h3>Simulation Speed</h3>
-            <p>Controls how quickly traversal steps are animated.</p>
-            <div className="settings-option-list" role="radiogroup" aria-label="Simulation speed">
-              {[
-                { value: 'slow', label: 'Slow', detail: 'Easier to follow' },
-                { value: 'medium', label: 'Medium', detail: 'Balanced pace' },
-                { value: 'fast', label: 'Fast', detail: 'Quick runs' },
-              ].map((option) => (
-                <label key={option.value} className="settings-option-card">
-                  <input
-                    type="radio"
-                    name="simulation-speed"
-                    value={option.value}
-                    checked={settingsDraft.speed === option.value}
-                    onChange={() => setSettingsDraft((prev) => ({ ...prev, speed: option.value }))}
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{option.detail}</small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </section>
-
-          <section className="settings-card">
-            <h3>Pause-Prediction cadence</h3>
-            <p>How many algorithm steps pass before a quiz prompt appears.</p>
-            <div className="settings-slider-row">
-              <input
-                type="range"
-                min="5"
-                max="30"
-                step="1"
-                value={settingsDraft.quizPromptInterval}
-                onChange={(event) =>
-                  setSettingsDraft((prev) => ({
-                    ...prev,
-                    quizPromptInterval: Number(event.target.value),
-                  }))
-                }
-              />
-              <div className="settings-slider-value">
-                <strong>{settingsDraft.quizPromptInterval}</strong>
-                <span>steps</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="settings-card settings-card-muted">
-            <h3>Quick actions</h3>
-            <p>Use the defaults if you want the original pacing back.</p>
-            <button type="button" className="settings-secondary-btn" onClick={resetSettingsToDefaults}>
-              Restore defaults
-            </button>
-          </section>
-        </ModalShell>
-      )}
-
-      {isLegendOpen && (
-        <ModalShell
-          className="modal-shell--legend"
-          titleId="legend-title"
-          kicker="Reference"
-          title="Visualizer Legend"
-          onClose={closeLegend}
-        >
-          <div className="legend-grid">
-            <div className="legend-item">
-              <span className="legend-swatch swatch-start" />
-              <span>Start node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-end" />
-              <span>Goal node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-wall" />
-              <span>Obstacle / wall</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-unvisited" />
-              <span>Unvisited node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-visited" />
-              <span>Visited during search</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-path" />
-              <span>Shortest path</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-candidate" />
-              <span>Quiz candidate node</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-swatch swatch-next" />
-              <span>Paused next valid choice</span>
-            </div>
-          </div>
-        </ModalShell>
-      )}
-
-      {isQuizMode && (
-        <div className="game-hud" aria-label="Gamification score">
-          <div className="hud-row">
-            <span className="hud-label">TRIES AVG</span>
-            <span className="hud-value">
-              {scoreState.questionsAnswered > 0 ? averageTriesPerQuestion.toFixed(1) : '-.-'}
-            </span>
-          </div>
-          <div className="hud-row">
-            <span className="hud-label">SCORE</span>
-            <span className="hud-value-wrap">
-              <span className="hud-value">
-                {scoreState.totalScore.toString().padStart(6, '0')}
-              </span>
-              {scorePopup && (
-                <span className="score-popup-floating score-popup-score">
-                  +{scorePopup.questionScore}
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="hud-row">
-            <span className="hud-label">ACCURACY</span>
-            <span className="hud-value-wrap">
-              <span className="hud-value">
-                {scoreState.questionsAnswered > 0 ? `${Math.round(averageTryAccuracy * 100)}%` : '--%'}
-              </span>
-              {scorePopup && (
-                <span className="score-popup-floating score-popup-accuracy">
-                  {Math.round(scorePopup.accuracy * 100)}% in {scorePopup.responseSeconds.toFixed(1)}s
-                </span>
-              )}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {quizState.active && (
-        <div className="quiz-overlay">
-          <h2>{isPaused ? 'Paused — ' : ''}{quizState.message}</h2>
-          {quizState.awaitingContinue && (
-            <button
-              className="quiz-continue-btn"
-              type="button"
-              onClick={() => quizState.continueFunc?.()}
-              disabled={isPaused}
-            >
-              Continue
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="main-layout">
-        <div className="visualizer-container">
-          {isRaceMode ? (
-            <>
-              <div className="race-container">
-                <Grid
-                  grid={grid}
-                  onMouseDown={handleMouseDown}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseUp={handleMouseUp}
-                  prefix="bfs-"
-                  label="BFS"
-                  cellSize={responsiveCellSize}
-                />
-                <Grid
-                  grid={grid}
-                  onMouseDown={handleMouseDown}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseUp={handleMouseUp}
-                  prefix="astar-"
-                  label="A*"
-                  cellSize={responsiveCellSize}
-                />
-              </div>
-              {stats && (
-                <div className="stats-container">
-                  {Object.entries(stats).map(([key, { visited, path }]) => (
-                    <StatCard
-                      key={key}
-                      title={key === 'bfs' ? 'BFS traversal profile' : 'A* traversal profile'}
-                      className="stat-card-comparison"
-                    >
-                      <div className="stat-metric-row">
-                        <span className="stat-metric-label">Node expansions</span>
-                        <span
-                          className={`stat-metric-value stat-metric-value--${raceResultComparison?.[key]?.visited.tone ?? 'equal'}`}
-                        >
-                          {visited}
-                        </span>
-                        <span className="stat-metric-note">
-                          {raceResultComparison?.[key]?.visited.note}
-                        </span>
-                      </div>
-                      <div className="stat-metric-row">
-                        <span className="stat-metric-label">Shortest-path length</span>
-                        <span
-                          className={`stat-metric-value stat-metric-value--${raceResultComparison?.[key]?.path.tone ?? 'equal'}`}
-                        >
-                          {path > 0 ? path : '—'}
-                        </span>
-                        <span className="stat-metric-note">
-                          {path > 0
-                            ? raceResultComparison?.[key]?.path.note
-                            : 'No valid path recorded'}
-                        </span>
-                      </div>
-                    </StatCard>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <Grid
-              grid={grid}
-              onMouseDown={handleMouseDown}
-              onMouseEnter={handleMouseEnter}
-              onMouseUp={handleMouseUp}
-              cellSize={responsiveCellSize}
-            />
-          )}
-
-          {!isRaceMode && activeHoverComparison && hoveredFrontierNode && (
-            <section className="node-proof-hover-panel formal-trace-panel" aria-live="polite">
-              <h2>Hovered Node Trace</h2>
-              <div className="trace-card">
-                <p>
-                  <strong>Hovered node:</strong> ({hoveredFrontierNode.row}, {hoveredFrontierNode.col})
-                </p>
-                <p>
-                  <strong>Equation for this node:</strong>{' '}
-                  {renderTraceEquation(hoveredFrontierNode, activeHoverComparison.algorithm)}
-                </p>
-                <p>
-                  <strong>Decision:</strong>{' '}
-                  <span className={`hover-decision hover-decision-${hoveredNodeDecision.tone}`}>
-                    {hoveredNodeDecision.text}
-                  </span>
-                </p>
-
-                {activeHoverComparison.algorithm === 'astar' ? (
-                  <>
-                    <p>
-                      <strong>Heuristic h(n):</strong>{' '}
-                      <span className="trace-inline-value trace-inline-value-visited">
-                        {hoveredFrontierNode.h}
-                      </span>
-                    </p>
-                    <p>
-                      <strong>Depth g(n):</strong>{' '}
-                      <span className="trace-inline-value trace-inline-value-path">
-                        {hoveredFrontierNode.g}
-                      </span>
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p>
-                      <strong>Depth g(n):</strong>{' '}
-                      <span className="trace-inline-value trace-inline-value-path">
-                        {hoveredFrontierNode.g}
-                      </span>
-                    </p>
-                    <p>
-                      <strong>BFS rule:</strong> minimum frontier depth g is expanded first.
-                    </p>
-                  </>
-                )}
-
-                {activeHoverComparison.algorithm === 'astar' ? (
-                  <>
-                    <p>
-                      <strong>Chosen vs minimum frontier:</strong> hovered f={hoveredFrontierNode.f}, minimum f={activeHoverComparison.minComparison?.minF ?? 'N/A'}
-                    </p>
-                    <p>
-                      <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={activeHoverComparison.minComparison?.minHAmongMinF ?? 'N/A'}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p>
-                      <strong>Chosen vs minimum frontier depth:</strong> hovered g={hoveredFrontierNode.g}, minimum g={activeHoverComparison.minComparison?.minG ?? 'N/A'}
-                    </p>
-                  </>
-                )}
-              </div>
-            </section>
-          )}
-        </div>
-
-        {!isRaceMode && (
-          <aside className="side-panel">
-            <div className="side-panel-tabs" role="tablist" aria-label="Proof sidebar tabs">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={sidePanelTab === 'manifesto'}
-                className={`side-panel-tab ${sidePanelTab === 'manifesto' ? 'active' : ''}`}
-                onClick={() => setSidePanelTab('manifesto')}
-              >
-                Manifesto
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={sidePanelTab === 'trace'}
-                className={`side-panel-tab ${sidePanelTab === 'trace' ? 'active' : ''}`}
-                onClick={() => setSidePanelTab('trace')}
-              >
-                Mathematical Trace
-              </button>
-            </div>
-
-            <section
-              className="knowledge-space-panel"
-              role="tabpanel"
-              aria-label="Manifesto framework"
-              hidden={sidePanelTab !== 'manifesto'}
-            >
-              <div className="knowledge-panel-header">
-                <h2>{knowledgeSpaceSnapshot.title}</h2>
-              </div>
-
-              <div className="knowledge-triplet" aria-label="Knowledge space tuple">
-                <div className="knowledge-set-card">
-                  <span className="knowledge-set-symbol">A</span>
-                  <strong>Artifacts</strong>
-                  {knowledgeSpaceSnapshot.artifactSet.map((item) => (
-                    <p key={item.symbol}>
-                      <span>{item.symbol}</span> {item.label}: {item.value}
-                    </p>
-                  ))}
-                </div>
-                <div className="knowledge-set-card">
-                  <span className="knowledge-set-symbol">D</span>
-                  <strong>Documents</strong>
-                  {knowledgeSpaceSnapshot.documentSet.map((item) => (
-                    <p key={item.symbol}>
-                      <span>{item.symbol}</span> {item.label}: {item.value}
-                    </p>
-                  ))}
-                </div>
-                <div className="knowledge-set-card">
-                  <span className="knowledge-set-symbol">S</span>
-                  <strong>Schema</strong>
-                  <div className="schema-chip-list">
-                    {knowledgeSpaceSnapshot.schemaSet.map((item) => (
-                      <span key={item.symbol} className="schema-chip">
-                        {item.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="knowledge-functions">
-                {knowledgeSpaceSnapshot.functions.map((fn) => (
-                  <div key={fn.name} className="knowledge-function-row">
-                    <span className="knowledge-function-name">{fn.name}</span>
-                    <div>
-                      <strong>{fn.label}</strong>
-                      <code>{fn.formula}</code>
-                      <p>{fn.value}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="retrieval-box">
-                <strong>D_rel</strong>
-                <code>{knowledgeSpaceSnapshot.retrievalExpression}</code>
-              </div>
-
-              {knowledgeSpaceSnapshot.activeStep && (
-                <div className="active-step-proof">
-                  <p>
-                    <strong>Current claim source:</strong>{' '}
-                    {knowledgeSpaceSnapshot.activeStep.expandedNode}
-                  </p>
-                  <p>{knowledgeSpaceSnapshot.activeStep.rule}</p>
-                </div>
-              )}
-
-              <div className="verification-list" aria-label="Verification constraints">
-                {knowledgeSpaceSnapshot.verificationClaims.length === 0 ? (
-                  <p className="verification-empty">
-                    Verification constraints appear when a trace step is available.
-                  </p>
-                ) : (
-                  knowledgeSpaceSnapshot.verificationClaims.map((claim) => (
-                    <div
-                      key={claim.id}
-                      className={`verification-item ${claim.holds ? 'verified' : 'unverified'}`}
-                    >
-                      <span>{claim.holds ? 'entails' : 'missing'}</span>
-                      <p>{claim.proposition}</p>
-                      <small>source: {claim.source}</small>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section
-              className="formal-trace-panel"
-              role="tabpanel"
-              aria-label="Mathematical trace"
-              hidden={sidePanelTab !== 'trace'}
-            >
-              <h2>Mathematical Trace</h2>
-
-              {isVisualizing && (
-                <p className="trace-hotkey">
-                  Press <strong>Space</strong> to {isPaused ? 'resume' : 'pause'}.
-                </p>
-              )}
-
-              {traceNotice && <p className="trace-notice">{traceNotice}</p>}
-
-              {!currentTrace && !traceNotice && (
-                <p className="trace-empty">
-                  Run a single algorithm to see the formal proof trace.
-                </p>
-              )}
-
-              {currentTrace && (
-                <div className="trace-card">
-                  <p>
-                    <strong>Step:</strong> {currentTrace.expansionIndex + 1} / {formalTrace.length}
-                  </p>
-                  <p>
-                    <strong>Expanded:</strong> ({currentTrace.expandedNode.row}, {currentTrace.expandedNode.col})
-                  </p>
-                  <p>
-                    <strong>Equation:</strong>{' '}
-                    {renderTraceEquation(currentTrace.expandedScores, currentTrace.algorithm)}
-                  </p>
-                  <p>
-                    <strong>Rule:</strong> {currentTrace.selectedBecause}
-                  </p>
-
-                  <div className="attempt-list">
-                    {(currentTrace.attempts || []).slice(0, 4).map((attempt, idx) => (
-                      <div key={`${attempt.to.row}-${attempt.to.col}-${idx}`} className="attempt-item-mini">
-                        <span>
-                          <strong>Neighbor ({attempt.to.row}, {attempt.to.col}):</strong>{' '}
-                          {attempt.decision.toUpperCase().substring(0, 10)}
-                        </span>
-                      </div>
-                    ))}
-                    {(currentTrace.attempts || []).length > 4 && (
-                      <p className="more-attempts">...</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* ── stats cards inside sidebar ── */}
-            {stats && (
-              <div className="stats-sidebar">
-                {Object.entries(stats).map(([key, { visited, path }]) => (
-                  <StatCard key={key} title={key === 'bfs' ? 'BFS' : 'A*'} className="stat-card-mini">
-                    <p>Visited: <strong>{visited}</strong></p>
-                    <p>Path: <strong>{path > 0 ? path : '—'}</strong></p>
-                  </StatCard>
-                ))}
-              </div>
-            )}
-          </aside>
-        )}
-      </div>
     </div>
   );
 }
