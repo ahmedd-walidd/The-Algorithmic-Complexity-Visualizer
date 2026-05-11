@@ -16,6 +16,11 @@ function ControlPanel({
   onObstacleModeToggle,
   onVisualize,
   isVisualizing,
+  isTimelineControlDisabled,
+  onRewind,
+  onFastForward,
+  onExportData,
+  exportRowCount = 0,
 }) {
   return (
     <div className="control-panel">
@@ -37,6 +42,18 @@ function ControlPanel({
           disabled={isVisualizing}
         >
           {isObstacleMode ? 'Exit Obstacle Mode' : 'Obstacle Mode'}
+        </ControlButton>
+        <ControlButton
+          variant="success"
+          onClick={onExportData}
+          disabled={isVisualizing || exportRowCount === 0}
+          title={
+            exportRowCount === 0
+              ? 'Run an algorithm before exporting data'
+              : `Export ${exportRowCount} recorded result row${exportRowCount === 1 ? '' : 's'}`
+          }
+        >
+          Data Export
         </ControlButton>
       </div>
 
@@ -74,6 +91,26 @@ function ControlPanel({
 
       {/* ── go button ── */}
       <div className="control-group">
+        <div className="timeline-buttons" aria-label="Timeline controls">
+          <ControlButton
+            className="control-button--timeline"
+            onClick={onRewind}
+            disabled={isTimelineControlDisabled}
+            aria-label="Rewind five animation steps"
+            title="Rewind five steps"
+          >
+            &laquo;
+          </ControlButton>
+          <ControlButton
+            className="control-button--timeline"
+            onClick={onFastForward}
+            disabled={isTimelineControlDisabled}
+            aria-label="Fast-forward five animation steps"
+            title="Fast-forward five steps"
+          >
+            &raquo;
+          </ControlButton>
+        </div>
         <ControlButton variant="primary" onClick={onVisualize} disabled={isVisualizing}>
           {isVisualizing
             ? 'Visualizing…'

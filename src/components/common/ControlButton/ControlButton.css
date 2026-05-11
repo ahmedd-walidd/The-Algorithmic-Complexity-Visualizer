@@ -65,3 +65,14 @@
 .control-button--primary:active:not(:disabled) {
   border-bottom-width: 2px;
 }
+
+.control-button--success {
+  background-color: #1f9d63;
+  border-color: #11633e;
+  color: #ffffff;
+}
+
+.control-button--success:hover:not(:disabled) {
+  background-color: #29b875;
+  border-color: #6ee7b7;
+}

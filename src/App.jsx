@@ -26,6 +26,7 @@ import './App.css';
 
 // Increased base delays so traversal is easier to follow visually.
 const SPEED_MS = { slow: 140, medium: 80, fast: 40 };
+const TIMELINE_JUMP_STEPS = 5;
 const RACE_CELL = 14; // smaller cells when two grids are side-by-side
 const GAMIFICATION_WEIGHTS = {
   alpha: 0.9,
@@ -50,6 +51,43 @@ const INITIAL_SCORE_STATE = {
   lastResponseTime: 0,
   lastAttempts: 0,
 };
+
+const EXPORT_COLUMNS = [
+  'Turn',
+  'Timestamp',
+  'Mode',
+  'Algorithm',
+  'Nodes Visited',
+  'Path Length',
+];
+
+function escapeCsvValue(value) {
+  const normalized = value ?? '';
+  const stringValue = String(normalized);
+  if (/[",\r\n]/.test(stringValue)) {
+    return `"${stringValue.replaceAll('"', '""')}"`;
+  }
+  return stringValue;
+}
+
+function buildExportRows({ turn, mode, runResults, createdAt = new Date().toISOString() }) {
+  return Object.entries(runResults).map(([algorithm, result]) => ({
+    Turn: turn,
+    Timestamp: createdAt,
+    Mode: mode,
+    Algorithm: algorithm === 'astar' ? 'A*' : 'BFS',
+    'Nodes Visited': result.visited,
+    'Path Length': result.pathNodes?.length || 0,
+  }));
+}
+
+function buildCsv(rows) {
+  const header = EXPORT_COLUMNS.join(',');
+  const body = rows.map((row) =>
+    EXPORT_COLUMNS.map((column) => escapeCsvValue(row[column])).join(',')
+  );
+  return [header, ...body].join('\n');
+}
 
 function buildPreviewPath(grid, start, end, algorithm) {
   if (!grid?.length || !start || !end) return [];
@@ -88,6 +126,7 @@ function App() {
   const [runSummary, setRunSummary] = useState(null);
   const [isRunSummaryOpen, setIsRunSummaryOpen] = useState(false);
   const [runSummaryIsRaceMode, setRunSummaryIsRaceMode] = useState(false);
+  const [exportRows, setExportRows] = useState([]);
   const timeoutsRef = useRef([]);
   const obstacleDragModeRef = useRef(null);
 
@@ -304,6 +343,37 @@ function App() {
     setIsRunSummaryOpen(false);
     setRunSummaryIsRaceMode(false);
   }, []);
+
+  const appendExportRows = useCallback((mode, runResults) => {
+    setExportRows((prev) => {
+      const lastTurn = prev.reduce((max, row) => Math.max(max, Number(row.Turn) || 0), 0);
+      return [
+        ...prev,
+        ...buildExportRows({
+          turn: lastTurn + 1,
+          mode,
+          runResults,
+        }),
+      ];
+    });
+  }, []);
+
+  const handleExportData = useCallback(() => {
+    if (exportRows.length === 0) return;
+
+    const csv = buildCsv(exportRows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    link.href = url;
+    link.download = `algorithm-run-data-${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, [exportRows]);
 
   const openSettings = useCallback(() => {
     setIsLegendOpen(false);
@@ -660,6 +730,31 @@ function App() {
     });
   };
 
+  const redrawRunTimeline = useCallback((run) => {
+    if (!run) return;
+
+    document
+      .querySelectorAll(`[id^="${run.prefix}node-"]`)
+      .forEach((el) => {
+        el.classList.remove('node-visited', 'node-shortest-path');
+      });
+
+    run.visited.slice(0, run.visitedIndex).forEach((n) => {
+      const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
+      if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
+        el.classList.add('node-visited');
+      }
+    });
+
+    run.path.slice(0, run.pathIndex).forEach((n) => {
+      const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
+      if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
+        el.classList.remove('node-visited');
+        el.classList.add('node-shortest-path');
+      }
+    });
+  }, []);
+
   const getNextTraversalComparison = useCallback(() => {
     if (isRaceMode) return null;
 
@@ -752,6 +847,88 @@ function App() {
     }, delay);
     timeoutsRef.current.push(t);
   }, [clearNextChoiceHighlight, clearFrontierHoverHighlight]);
+
+  const scheduleRunTick = useCallback(() => {
+    const run = runStateRef.current;
+    if (isPausedRef.current) return;
+    if (run.phase === 'idle' || run.phase === 'done') return;
+    if (quizStateRef.current.active) return;
+
+    const delay = run.phase === 'path' ? run.ms * 3 : run.ms;
+    const t = setTimeout(() => {
+      runStateRef.current.stepFunc?.();
+    }, delay);
+    timeoutsRef.current.push(t);
+  }, []);
+
+  const jumpTimeline = useCallback(
+    (direction) => {
+      if (!isVisualizing || isRaceMode) return;
+
+      const run = runStateRef.current;
+      if (run.phase === 'idle' || run.phase === 'done') return;
+      if (quizStateRef.current.active) return;
+
+      clearAllTimeouts();
+      clearNextChoiceHighlight();
+      clearFrontierHoverHighlight();
+      setPausedComparison(null);
+      setHoveredFrontierNode(null);
+
+      const maxPosition = run.visited.length + run.path.length;
+      const currentPosition =
+        run.phase === 'path'
+          ? run.visited.length + run.pathIndex
+          : run.visitedIndex;
+      const delta = direction === 'forward' ? TIMELINE_JUMP_STEPS : -TIMELINE_JUMP_STEPS;
+      const nextPosition = Math.max(0, Math.min(maxPosition, currentPosition + delta));
+
+      if (nextPosition >= run.visited.length) {
+        run.phase = 'path';
+        run.visitedIndex = run.visited.length;
+        run.pathIndex = nextPosition - run.visited.length;
+      } else {
+        run.phase = 'visited';
+        run.visitedIndex = nextPosition;
+        run.pathIndex = 0;
+      }
+
+      redrawRunTimeline(run);
+      const nextTraceIndex = Math.max(0, Math.min(run.visitedIndex - 1, formalTraceRef.current.length - 1));
+      setActiveTraceIndex(formalTraceRef.current.length > 0 ? nextTraceIndex : -1);
+
+      if (nextPosition >= maxPosition) {
+        run.phase = 'done';
+        setSimulationPhase('done');
+        run.onDone?.();
+        return;
+      }
+
+      setSimulationPhase(run.phase);
+
+      if (isPausedRef.current) {
+        pausedPhaseRef.current = run.phase;
+        const comparison = getNextTraversalComparison();
+        setPausedComparison(comparison);
+        applyFrontierHoverHighlight(comparison?.frontierNodes || []);
+        applyNextChoiceHighlight(comparison?.candidateNodes || []);
+        return;
+      }
+
+      scheduleRunTick();
+    },
+    [
+      applyFrontierHoverHighlight,
+      applyNextChoiceHighlight,
+      clearFrontierHoverHighlight,
+      clearNextChoiceHighlight,
+      getNextTraversalComparison,
+      isRaceMode,
+      isVisualizing,
+      redrawRunTimeline,
+      scheduleRunTick,
+    ]
+  );
 
   const togglePause = useCallback(() => {
     if (!isVisualizing || isRaceMode) return;
@@ -1229,6 +1406,7 @@ function App() {
             bfs: { visited: bfsVisited.length, path: bfsPathNodes.length },
             astar: { visited: astarVisited.length, path: astarPathNodes.length },
           });
+          appendExportRows('Race', runResults);
         }
       };
 
@@ -1295,6 +1473,7 @@ function App() {
           setStats({
             [algorithm]: { visited: visited.length, path: pathNodes.length },
           });
+          appendExportRows('Single', runResults);
         },
         (stepIndex) => {
           setActiveTraceIndex(stepIndex);
@@ -1313,6 +1492,7 @@ function App() {
     scoreState,
     clearRunSummary,
     resetGamification,
+    appendExportRows,
   ]);
 
   const currentTrace =
@@ -1565,6 +1745,11 @@ function App() {
         onObstacleModeToggle={() => setIsObstacleMode((v) => !v)}
         onVisualize={handleVisualize}
         isVisualizing={isVisualizing}
+        isTimelineControlDisabled={!isVisualizing || isRaceMode || quizState.active}
+        onRewind={() => jumpTimeline('backward')}
+        onFastForward={() => jumpTimeline('forward')}
+        onExportData={handleExportData}
+        exportRowCount={exportRows.length}
       />
 
       <StatusBadge
