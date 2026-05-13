@@ -1,5 +1,4 @@
 import Node from '../Node/Node';
-import { COLS } from '../../utils/gridHelpers';
 import './Grid.css';
 
 function Grid({
@@ -12,10 +11,11 @@ function Grid({
   cellSize = 25,
 }) {
   const rowCount = grid.length;
+  const colCount = grid[0]?.length || 0;
   const xTickStep = cellSize < 18 ? 5 : 1;
   const yTickStep = cellSize < 18 ? 2 : 1;
 
-  const columns = Array.from({ length: COLS }, (_, col) => col);
+  const columns = Array.from({ length: colCount }, (_, col) => col);
   const rows = Array.from({ length: rowCount }, (_, row) => row);
 
   return (
@@ -30,7 +30,7 @@ function Grid({
         <div
           className="x-axis-labels"
           style={{
-            gridTemplateColumns: `repeat(${COLS}, ${cellSize}px)`,
+            gridTemplateColumns: `repeat(${colCount}, ${cellSize}px)`,
           }}
           aria-hidden="true"
         >
@@ -58,7 +58,7 @@ function Grid({
         <div
           className="grid"
           style={{
-            gridTemplateColumns: `repeat(${COLS}, ${cellSize}px)`,
+            gridTemplateColumns: `repeat(${colCount}, ${cellSize}px)`,
           }}
         >
           {grid.map((row) =>

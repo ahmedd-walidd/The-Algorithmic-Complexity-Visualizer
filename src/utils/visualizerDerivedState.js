@@ -1,4 +1,3 @@
-import { END_COL, END_ROW, START_COL, START_ROW } from './gridHelpers';
 import { buildPreviewPath } from './previewPath';
 
 export function getSimulationPhaseDisplay(simulationPhase) {
@@ -89,7 +88,13 @@ export function getHoveredNodeDecision(hoveredFrontierNode, activeHoverCompariso
   };
 }
 
-export function getHoveredPreviewPaths({ grid, hoveredFrontierNode, activeHoverComparison }) {
+export function getHoveredPreviewPaths({
+  grid,
+  hoveredFrontierNode,
+  activeHoverComparison,
+  start,
+  end,
+}) {
   if (!hoveredFrontierNode || !activeHoverComparison) {
     return {
       hoveredForwardPreviewPath: [],
@@ -102,14 +107,14 @@ export function getHoveredPreviewPaths({ grid, hoveredFrontierNode, activeHoverC
       ? buildPreviewPath(
           grid,
           { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
-          { row: END_ROW, col: END_COL },
+          { row: end.row, col: end.col },
           activeHoverComparison.algorithm
         )
       : [];
 
   const hoveredBackwardPreviewPath = buildPreviewPath(
     grid,
-    { row: START_ROW, col: START_COL },
+    { row: start.row, col: start.col },
     { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
     'bfs'
   );

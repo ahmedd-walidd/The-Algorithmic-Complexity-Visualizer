@@ -6,6 +6,13 @@ const SPEED_OPTIONS = [
   { value: 'fast', label: 'Fast', detail: 'Quick runs' },
 ];
 
+const GRID_PRESETS = [
+  { id: 'small', label: 'Small', rows: 10, cols: 25 },
+  { id: 'default', label: 'Default', rows: 20, cols: 50 },
+  { id: 'large', label: 'Large', rows: 30, cols: 75 },
+  { id: 'custom', label: 'Custom', rows: null, cols: null },
+];
+
 function SettingsModal({
   isOpen,
   settingsDraft,
@@ -77,6 +84,90 @@ function SettingsModal({
             <strong>{settingsDraft.quizPromptInterval}</strong>
             <span>steps</span>
           </div>
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <h3>Equation overlay</h3>
+        <p>Show the on-grid f(n) equation tether and g/h ladder labels.</p>
+        <label className="settings-toggle-row">
+          <input
+            type="checkbox"
+            checked={settingsDraft.showEquationOverlay}
+            onChange={(event) =>
+              setSettingsDraft((prev) => ({
+                ...prev,
+                showEquationOverlay: event.target.checked,
+              }))
+            }
+          />
+          <span>Enable equation overlay</span>
+        </label>
+      </section>
+
+      <section className="settings-card">
+        <h3>Grid size</h3>
+        <p>Adjust the size of the maze. Changing this will rebuild the board.</p>
+        <div className="settings-grid-size">
+          <label>
+            Preset
+            <select
+              value={(() => {
+                const match = GRID_PRESETS.find(
+                  (preset) =>
+                    preset.rows === settingsDraft.gridRows &&
+                    preset.cols === settingsDraft.gridCols
+                );
+                return match?.id || 'custom';
+              })()}
+              onChange={(event) => {
+                const preset = GRID_PRESETS.find((item) => item.id === event.target.value);
+                if (!preset) return;
+                if (preset.id === 'custom') return;
+                setSettingsDraft((prev) => ({
+                  ...prev,
+                  gridRows: preset.rows,
+                  gridCols: preset.cols,
+                }));
+              }}
+            >
+              {GRID_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Rows
+            <input
+              type="number"
+              min="8"
+              max="60"
+              value={settingsDraft.gridRows}
+              onChange={(event) =>
+                setSettingsDraft((prev) => ({
+                  ...prev,
+                  gridRows: Number(event.target.value),
+                }))
+              }
+            />
+          </label>
+          <label>
+            Columns
+            <input
+              type="number"
+              min="12"
+              max="90"
+              value={settingsDraft.gridCols}
+              onChange={(event) =>
+                setSettingsDraft((prev) => ({
+                  ...prev,
+                  gridCols: Number(event.target.value),
+                }))
+              }
+            />
+          </label>
         </div>
       </section>
 

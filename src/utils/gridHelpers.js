@@ -1,17 +1,27 @@
-const ROWS = 20;
-const COLS = 50;
+const DEFAULT_GRID_CONFIG = {
+  rows: 20,
+  cols: 50,
+};
 
-const START_ROW = 10;
-const START_COL = 5;
-const END_ROW = 10;
-const END_COL = 45;
+export function getGridEndpoints(rows, cols) {
+  const start = {
+    row: Math.floor(rows / 2),
+    col: Math.max(1, Math.floor(cols * 0.1)),
+  };
+  const end = {
+    row: start.row,
+    col: Math.min(cols - 2, cols - start.col - 1),
+  };
 
-export function createNode(row, col) {
+  return { start, end };
+}
+
+export function createNode(row, col, start, end) {
   return {
     row,
     col,
-    isStart: row === START_ROW && col === START_COL,
-    isEnd: row === END_ROW && col === END_COL,
+    isStart: Boolean(start && row === start.row && col === start.col),
+    isEnd: Boolean(end && row === end.row && col === end.col),
     isWall: false,
     isVisited: false,
     previousNode: null,
@@ -21,14 +31,14 @@ export function createNode(row, col) {
   };
 }
 
-export function createGrid() {
+export function createGrid({ rows, cols, start, end }) {
   const grid = [];
 
-  for (let row = 0; row < ROWS; row++) {
+  for (let row = 0; row < rows; row++) {
     const currentRow = [];
 
-    for (let col = 0; col < COLS; col++) {
-      currentRow.push(createNode(row, col));
+    for (let col = 0; col < cols; col++) {
+      currentRow.push(createNode(row, col, start, end));
     }
 
     grid.push(currentRow);
@@ -73,4 +83,4 @@ export function getNodesInShortestPathOrder(endNode) {
   return path;
 }
 
-export { ROWS, COLS, START_ROW, START_COL, END_ROW, END_COL };
+export { DEFAULT_GRID_CONFIG };

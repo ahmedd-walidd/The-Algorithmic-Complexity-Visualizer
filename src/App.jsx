@@ -2,15 +2,14 @@
 import AppChrome from './components/layout/AppChrome';
 import VisualizerWorkspace from './components/layout/VisualizerWorkspace';
 import TraceEquation from './components/panels/TraceEquation';
+import LandingScreen from './components/layout/LandingScreen';
 import {
   createGrid,
   clearPath,
   cloneGrid,
   getNodesInShortestPathOrder,
-  START_ROW,
-  START_COL,
-  END_ROW,
-  END_COL,
+  getGridEndpoints,
+  DEFAULT_GRID_CONFIG,
 } from './utils/gridHelpers';
 import { generateMaze } from './utils/mazeGenerator';
 import { bfs } from './algorithms/bfs';
@@ -53,7 +52,17 @@ const TIMELINE_JUMP_STEPS = 5;
 const DEFAULT_SETTINGS = {
   speed: 'medium',
   quizPromptInterval: 15,
+  showEquationOverlay: true,
+  gridRows: DEFAULT_GRID_CONFIG.rows,
+  gridCols: DEFAULT_GRID_CONFIG.cols,
 };
+
+const GRID_PRESETS = [
+  { id: 'small', label: 'Small', rows: 10, cols: 25 },
+  { id: 'default', label: 'Default', rows: 20, cols: 50 },
+  { id: 'large', label: 'Large', rows: 30, cols: 75 },
+  { id: 'custom', label: 'Custom', rows: DEFAULT_GRID_CONFIG.rows, cols: DEFAULT_GRID_CONFIG.cols },
+];
 
 const INITIAL_SCORE_STATE = {
   totalScore: 0,
@@ -71,15 +80,35 @@ const INITIAL_SCORE_STATE = {
 
 function App() {
   // -- state --
-  const [grid, setGrid] = useState(() => createGrid());
+  const [gridConfig, setGridConfig] = useState(DEFAULT_GRID_CONFIG);
+  const [gridEndpoints, setGridEndpoints] = useState(() =>
+    getGridEndpoints(DEFAULT_GRID_CONFIG.rows, DEFAULT_GRID_CONFIG.cols)
+  );
+  const [grid, setGrid] = useState(() =>
+    createGrid({
+      rows: DEFAULT_GRID_CONFIG.rows,
+      cols: DEFAULT_GRID_CONFIG.cols,
+      ...getGridEndpoints(DEFAULT_GRID_CONFIG.rows, DEFAULT_GRID_CONFIG.cols),
+    })
+  );
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [isObstacleMode, setIsObstacleMode] = useState(false);
   const [algorithm, setAlgorithm] = useState('bfs');
   const [isRaceMode, setIsRaceMode] = useState(false);
   const [speed, setSpeed] = useState(DEFAULT_SETTINGS.speed);
   const [quizPromptInterval, setQuizPromptInterval] = useState(DEFAULT_SETTINGS.quizPromptInterval);
+  const [showEquationOverlay, setShowEquationOverlay] = useState(
+    DEFAULT_SETTINGS.showEquationOverlay
+  );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(DEFAULT_SETTINGS);
+  const [isLandingOpen, setIsLandingOpen] = useState(true);
+  const [landingDraft, setLandingDraft] = useState({
+    gridPreset: 'default',
+    gridRows: DEFAULT_SETTINGS.gridRows,
+    gridCols: DEFAULT_SETTINGS.gridCols,
+    showEquationOverlay: DEFAULT_SETTINGS.showEquationOverlay,
+  });
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   const [sidePanelTab, setSidePanelTab] = useState('manifesto');
   const [isVisualizing, setIsVisualizing] = useState(false);
@@ -93,7 +122,7 @@ function App() {
   const obstacleDragModeRef = useRef(null);
 
   // -- responsive cell size --
-  const responsiveCellSize = useResponsiveCellSize(isRaceMode);
+  const responsiveCellSize = useResponsiveCellSize(gridConfig.rows, gridConfig.cols, isRaceMode);
 
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [scorePopup, setScorePopup] = useState(null);
@@ -144,8 +173,8 @@ function App() {
   });
 
   const applyObstacleState = useCallback((row, col, isWall) => {
-    if (row === START_ROW && col === START_COL) return;
-    if (row === END_ROW && col === END_COL) return;
+    if (row === gridEndpoints.start.row && col === gridEndpoints.start.col) return;
+    if (row === gridEndpoints.end.row && col === gridEndpoints.end.col) return;
 
     setGrid((prev) => {
       const currentNode = prev[row]?.[col];
@@ -155,7 +184,7 @@ function App() {
       next[row][col] = { ...next[row][col], isWall };
       return next;
     });
-  }, []);
+  }, [gridEndpoints]);
 
   const showGamifiedPopup = useCallback((row, col, text, type = 'positive') => {
     const ids = [`node-${row}-${col}`, `bfs-node-${row}-${col}`, `astar-node-${row}-${col}`];
@@ -232,6 +261,70 @@ function App() {
     setRunSummaryIsRaceMode(false);
   }, []);
 
+  // DOM highlight helpers
+  const clearAllTimeouts = () => {
+    clearTimeoutQueue(timeoutsRef);
+  };
+
+  const resetRunState = useCallback(() => {
+    runStateRef.current = {
+      phase: 'idle',
+      visited: [],
+      path: [],
+      prefix: '',
+      ms: SPEED_MS.medium,
+      optionsByIndex: null,
+      onDone: null,
+      onStep: null,
+      visitedIndex: 0,
+      pathIndex: 0,
+      pauseInterval: quizPromptInterval,
+      stepFunc: null,
+    };
+  }, [quizPromptInterval]);
+
+  const resetVisualizationState = useCallback(({ resetScore = true } = {}) => {
+    setStats(null);
+    setIsVisualizing(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    if (resetScore) resetGamification();
+    setFormalTrace([]);
+    setActiveTraceIndex(-1);
+    setPausedComparison(null);
+    setHoveredFrontierNode(null);
+    setTraceNotice('');
+    setSimulationPhase('idle');
+    pausedPhaseRef.current = 'idle';
+  }, [resetGamification]);
+
+  const rebuildGrid = useCallback(
+    (nextConfig) => {
+      clearAllTimeouts();
+      clearVisualizerDomClasses();
+      clearNextChoiceHighlight();
+      clearFrontierHoverHighlight();
+      clearPreviewPathHighlight();
+      resetRunState();
+      clearRunSummary();
+
+      const rows = Math.max(8, Math.min(60, Number(nextConfig.rows) || DEFAULT_GRID_CONFIG.rows));
+      const cols = Math.max(12, Math.min(90, Number(nextConfig.cols) || DEFAULT_GRID_CONFIG.cols));
+      const endpoints = getGridEndpoints(rows, cols);
+
+      setGridConfig({ rows, cols });
+      setGridEndpoints(endpoints);
+      setGrid(createGrid({ rows, cols, ...endpoints }));
+      resetVisualizationState();
+    },
+    [
+      clearRunSummary,
+      resetRunState,
+      resetVisualizationState,
+      clearAllTimeouts,
+    ]
+  );
+
   const appendExportRows = useCallback((mode, runResults) => {
     setExportRows((prev) => {
       const lastTurn = prev.reduce((max, row) => Math.max(max, Number(row.Turn) || 0), 0);
@@ -268,17 +361,23 @@ function App() {
     setSettingsDraft({
       speed,
       quizPromptInterval,
+      showEquationOverlay,
+      gridRows: gridConfig.rows,
+      gridCols: gridConfig.cols,
     });
     setIsSettingsOpen(true);
-  }, [speed, quizPromptInterval]);
+  }, [speed, quizPromptInterval, showEquationOverlay, gridConfig]);
 
   const closeSettings = useCallback(() => {
     setIsSettingsOpen(false);
     setSettingsDraft({
       speed,
       quizPromptInterval,
+      showEquationOverlay,
+      gridRows: gridConfig.rows,
+      gridCols: gridConfig.cols,
     });
-  }, [speed, quizPromptInterval]);
+  }, [speed, quizPromptInterval, showEquationOverlay, gridConfig]);
 
   const openLegend = useCallback(() => {
     setIsSettingsOpen(false);
@@ -292,9 +391,16 @@ function App() {
   const saveSettings = useCallback(() => {
     setSpeed(settingsDraft.speed);
     setQuizPromptInterval(settingsDraft.quizPromptInterval);
+    setShowEquationOverlay(settingsDraft.showEquationOverlay);
     runStateRef.current.pauseInterval = settingsDraft.quizPromptInterval;
+    if (
+      settingsDraft.gridRows !== gridConfig.rows ||
+      settingsDraft.gridCols !== gridConfig.cols
+    ) {
+      rebuildGrid({ rows: settingsDraft.gridRows, cols: settingsDraft.gridCols });
+    }
     setIsSettingsOpen(false);
-  }, [settingsDraft]);
+  }, [settingsDraft, gridConfig, rebuildGrid]);
 
   const resetSettingsToDefaults = useCallback(() => {
     setSettingsDraft(DEFAULT_SETTINGS);
@@ -412,8 +518,8 @@ function App() {
 
       if (isVisualizing) return;
       if (!isObstacleMode) return;
-      if (row === START_ROW && col === START_COL) return;
-      if (row === END_ROW && col === END_COL) return;
+      if (row === gridEndpoints.start.row && col === gridEndpoints.start.col) return;
+      if (row === gridEndpoints.end.row && col === gridEndpoints.end.col) return;
 
       const currentNode = grid[row]?.[col];
       if (!currentNode) return;
@@ -428,6 +534,7 @@ function App() {
       isPaused,
       grid,
       isObstacleMode,
+      gridEndpoints,
       showGamifiedPopup,
       applyObstacleState,
     ]
@@ -488,42 +595,6 @@ function App() {
     obstacleDragModeRef.current = null;
   }, []);
 
-  // DOM highlight helpers
-  const clearAllTimeouts = () => {
-    clearTimeoutQueue(timeoutsRef);
-  };
-
-  const resetRunState = useCallback(() => {
-    runStateRef.current = {
-      phase: 'idle',
-      visited: [],
-      path: [],
-      prefix: '',
-      ms: SPEED_MS.medium,
-      optionsByIndex: null,
-      onDone: null,
-      onStep: null,
-      visitedIndex: 0,
-      pathIndex: 0,
-      pauseInterval: quizPromptInterval,
-      stepFunc: null,
-    };
-  }, [quizPromptInterval]);
-
-  const resetVisualizationState = useCallback(({ resetScore = true } = {}) => {
-    setStats(null);
-    setIsVisualizing(false);
-    setIsPaused(false);
-    isPausedRef.current = false;
-    if (resetScore) resetGamification();
-    setFormalTrace([]);
-    setActiveTraceIndex(-1);
-    setPausedComparison(null);
-    setHoveredFrontierNode(null);
-    setTraceNotice('');
-    setSimulationPhase('idle');
-    pausedPhaseRef.current = 'idle';
-  }, [resetGamification]);
 
   const getNextComparison = useCallback(
     () =>
@@ -686,9 +757,22 @@ function App() {
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
-    setGrid((prev) => generateMaze(prev));
+    setGrid(
+      generateMaze({
+        rows: gridConfig.rows,
+        cols: gridConfig.cols,
+        start: gridEndpoints.start,
+        end: gridEndpoints.end,
+      })
+    );
     resetVisualizationState();
-  }, [clearRunSummary, resetRunState, resetVisualizationState]);
+  }, [
+    clearRunSummary,
+    resetRunState,
+    resetVisualizationState,
+    gridConfig,
+    gridEndpoints,
+  ]);
 
   const handleClearBoard = useCallback(() => {
     clearAllTimeouts();
@@ -696,9 +780,22 @@ function App() {
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
-    setGrid(createGrid());
+    setGrid(
+      createGrid({
+        rows: gridConfig.rows,
+        cols: gridConfig.cols,
+        start: gridEndpoints.start,
+        end: gridEndpoints.end,
+      })
+    );
     resetVisualizationState();
-  }, [clearRunSummary, resetRunState, resetVisualizationState]);
+  }, [
+    clearRunSummary,
+    resetRunState,
+    resetVisualizationState,
+    gridConfig,
+    gridEndpoints,
+  ]);
 
   const handleClearPath = useCallback(() => {
     clearAllTimeouts();
@@ -1019,15 +1116,23 @@ function App() {
       const gAstar = cloneGrid(cleanGrid);
 
       const bfsStart = performance.now();
-      const bfsVisited = bfs(gBfs, gBfs[START_ROW][START_COL], gBfs[END_ROW][END_COL]);
+      const bfsVisited = bfs(
+        gBfs,
+        gBfs[gridEndpoints.start.row][gridEndpoints.start.col],
+        gBfs[gridEndpoints.end.row][gridEndpoints.end.col]
+      );
       const bfsDurationMs = performance.now() - bfsStart;
-      const bfsEnd = gBfs[END_ROW][END_COL];
+      const bfsEnd = gBfs[gridEndpoints.end.row][gridEndpoints.end.col];
       const bfsPathNodes = bfsEnd.isVisited ? getNodesInShortestPathOrder(bfsEnd) : [];
 
       const astarStart = performance.now();
-      const astarVisited = astar(gAstar, gAstar[START_ROW][START_COL], gAstar[END_ROW][END_COL]);
+      const astarVisited = astar(
+        gAstar,
+        gAstar[gridEndpoints.start.row][gridEndpoints.start.col],
+        gAstar[gridEndpoints.end.row][gridEndpoints.end.col]
+      );
       const astarDurationMs = performance.now() - astarStart;
-      const astarEnd = gAstar[END_ROW][END_COL];
+      const astarEnd = gAstar[gridEndpoints.end.row][gridEndpoints.end.col];
       const astarPathNodes = astarEnd.isVisited ? getNodesInShortestPathOrder(astarEnd) : [];
 
       const runResults = {
@@ -1087,8 +1192,8 @@ function App() {
     } else {
       // Single algorithm.
       const copy = cloneGrid(cleanGrid);
-      const start = copy[START_ROW][START_COL];
-      const end = copy[END_ROW][END_COL];
+      const start = copy[gridEndpoints.start.row][gridEndpoints.start.col];
+      const end = copy[gridEndpoints.end.row][gridEndpoints.end.col];
 
       const runStart = performance.now();
       const result =
@@ -1164,6 +1269,7 @@ function App() {
     clearRunSummary,
     resetGamification,
     resetRunState,
+    gridEndpoints,
   ]);
 
   const currentTrace =
@@ -1199,12 +1305,19 @@ function App() {
   );
 
   const { hoveredForwardPreviewPath, hoveredBackwardPreviewPath } = useMemo(
-    () => getHoveredPreviewPaths({ grid, hoveredFrontierNode, activeHoverComparison }),
-    [grid, hoveredFrontierNode, activeHoverComparison]
+    () =>
+      getHoveredPreviewPaths({
+        grid,
+        hoveredFrontierNode,
+        activeHoverComparison,
+        start: gridEndpoints.start,
+        end: gridEndpoints.end,
+      }),
+    [grid, hoveredFrontierNode, activeHoverComparison, gridEndpoints]
   );
 
   const { activeTraceForwardPreviewPath, activeTraceBackwardPreviewPath } = useMemo(() => {
-    if (!currentTrace?.expandedNode) {
+    if (!showEquationOverlay || !currentTrace?.expandedNode) {
       return {
         activeTraceForwardPreviewPath: [],
         activeTraceBackwardPreviewPath: [],
@@ -1214,7 +1327,7 @@ function App() {
     const anchor = currentTrace.expandedNode;
     const backwardPath = buildPreviewPath(
       grid,
-      { row: START_ROW, col: START_COL },
+      { row: gridEndpoints.start.row, col: gridEndpoints.start.col },
       { row: anchor.row, col: anchor.col },
       'bfs'
     );
@@ -1223,7 +1336,7 @@ function App() {
         ? buildPreviewPath(
             grid,
             { row: anchor.row, col: anchor.col },
-            { row: END_ROW, col: END_COL },
+            { row: gridEndpoints.end.row, col: gridEndpoints.end.col },
             'astar'
           )
         : [];
@@ -1232,7 +1345,7 @@ function App() {
       activeTraceForwardPreviewPath: forwardPath,
       activeTraceBackwardPreviewPath: backwardPath,
     };
-  }, [grid, currentTrace]);
+  }, [grid, currentTrace, gridEndpoints, showEquationOverlay]);
 
   useEffect(() => {
     clearPreviewPathHighlight();
@@ -1260,8 +1373,8 @@ function App() {
       applyPreviewPathHighlight(forwardPreview, {
         kind: 'forward',
         labelMode: 'heuristic',
-        goalRow: END_ROW,
-        goalCol: END_COL,
+        goalRow: gridEndpoints.end.row,
+        goalCol: gridEndpoints.end.col,
       });
     }
     return () => clearPreviewPathHighlight();
@@ -1272,6 +1385,7 @@ function App() {
     activeTraceBackwardPreviewPath,
     activeHoverComparison,
     currentTrace,
+    gridEndpoints,
   ]);
 
   const { averageTryAccuracy, averageTriesPerQuestion } = getScoreAverages(scoreState);
@@ -1281,7 +1395,40 @@ function App() {
     [isRaceMode, stats]
   );
 
+  const handleLandingStart = useCallback(() => {
+    const preset = GRID_PRESETS.find((option) => option.id === landingDraft.gridPreset);
+    const selectedRows =
+      landingDraft.gridPreset === 'custom'
+        ? landingDraft.gridRows
+        : preset?.rows ?? DEFAULT_GRID_CONFIG.rows;
+    const selectedCols =
+      landingDraft.gridPreset === 'custom'
+        ? landingDraft.gridCols
+        : preset?.cols ?? DEFAULT_GRID_CONFIG.cols;
+
+    rebuildGrid({ rows: selectedRows, cols: selectedCols });
+    setShowEquationOverlay(landingDraft.showEquationOverlay);
+    setSettingsDraft((prev) => ({
+      ...prev,
+      showEquationOverlay: landingDraft.showEquationOverlay,
+      gridRows: selectedRows,
+      gridCols: selectedCols,
+    }));
+    setIsLandingOpen(false);
+  }, [landingDraft, rebuildGrid]);
+
   // Render
+  if (isLandingOpen) {
+    return (
+      <LandingScreen
+        gridPresets={GRID_PRESETS}
+        landingDraft={landingDraft}
+        setLandingDraft={setLandingDraft}
+        onStart={handleLandingStart}
+      />
+    );
+  }
+
   return (
     <div
       className={`app${isObstacleMode ? ' obstacle-mode' : ''}${isObstaclePainting ? ' obstacle-painting' : ''}`}
@@ -1348,6 +1495,9 @@ function App() {
         setSidePanelTab={setSidePanelTab}
         sidePanelTab={sidePanelTab}
         simulationPhase={simulationPhase}
+        showEquationOverlay={showEquationOverlay}
+        start={gridEndpoints.start}
+        end={gridEndpoints.end}
         stats={stats}
         traceNotice={traceNotice}
       />

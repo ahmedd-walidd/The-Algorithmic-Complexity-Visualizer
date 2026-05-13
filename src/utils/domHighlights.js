@@ -1,5 +1,3 @@
-import { END_COL, END_ROW } from './gridHelpers';
-
 export function clearTimeoutQueue(timeoutsRef) {
   timeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
   timeoutsRef.current = [];
@@ -56,8 +54,8 @@ export function applyPreviewPathHighlight(nodes, options = {}) {
     prefix = '',
     kind = 'forward',
     labelMode = 'remaining',
-    goalRow = END_ROW,
-    goalCol = END_COL,
+    goalRow = 0,
+    goalCol = 0,
     clearBefore = false,
   } = options;
 

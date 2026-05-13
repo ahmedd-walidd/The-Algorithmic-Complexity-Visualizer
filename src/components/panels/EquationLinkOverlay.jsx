@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import TraceEquation from './TraceEquation';
-import { END_COL, END_ROW, START_COL, START_ROW } from '../../utils/gridHelpers';
 
 const VIEWPORT_PADDING = 16;
 const EDGE_OFFSET = 18;
@@ -17,6 +16,8 @@ function EquationLinkOverlay({
   anchor,
   scores,
   algorithm,
+  start,
+  end,
   prefix = '',
   label = 'trace',
   animationKey,
@@ -68,8 +69,12 @@ function EquationLinkOverlay({
     if (!anchor) return undefined;
 
     const anchorEl = document.getElementById(`${prefix}node-${anchor.row}-${anchor.col}`);
-    const startEl = document.getElementById(`${prefix}node-${START_ROW}-${START_COL}`);
-    const goalEl = document.getElementById(`${prefix}node-${END_ROW}-${END_COL}`);
+    const startEl = start
+      ? document.getElementById(`${prefix}node-${start.row}-${start.col}`)
+      : null;
+    const goalEl = end
+      ? document.getElementById(`${prefix}node-${end.row}-${end.col}`)
+      : null;
 
     anchorEl?.classList.add('node-equation-anchor');
     startEl?.classList.add('node-equation-source');
@@ -80,7 +85,7 @@ function EquationLinkOverlay({
       startEl?.classList.remove('node-equation-source');
       goalEl?.classList.remove('node-equation-goal');
     };
-  }, [anchor, algorithm, prefix, animationKey]);
+  }, [anchor, algorithm, start, end, prefix, animationKey]);
 
   if (!anchor || !scores || !position) return null;
 

@@ -24,13 +24,17 @@ function VisualizerWorkspace({
   setSidePanelTab,
   sidePanelTab,
   simulationPhase,
+  showEquationOverlay,
+  start,
+  end,
   stats,
   traceNotice,
 }) {
-  const showEquationOverlay = !isRaceMode && isVisualizing && simulationPhase !== 'done';
+  const shouldShowEquationOverlay =
+    showEquationOverlay && !isRaceMode && isVisualizing && simulationPhase !== 'done';
 
   const equationAnchor = (() => {
-    if (!showEquationOverlay) return null;
+    if (!shouldShowEquationOverlay) return null;
 
     if (hoveredFrontierNode && activeHoverComparison) {
       return {
@@ -78,11 +82,13 @@ function VisualizerWorkspace({
           />
         )}
 
-        {showEquationOverlay && equationAnchor && (
+        {shouldShowEquationOverlay && equationAnchor && (
           <EquationLinkOverlay
             anchor={equationAnchor.node}
             scores={equationAnchor.scores}
             algorithm={equationAnchor.algorithm}
+            start={start}
+            end={end}
             label={equationAnchor.label}
             animationKey={equationAnchor.animationKey}
           />
