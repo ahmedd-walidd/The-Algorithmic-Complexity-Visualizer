@@ -1,8 +1,10 @@
+import { PanelRightClose } from 'lucide-react';
 import StatCard from '../common/StatCard/StatCard';
 
 function SidePanel({
   sidePanelTab,
   setSidePanelTab,
+  onClose,
   knowledgeSpaceSnapshot,
   isVisualizing,
   isPaused,
@@ -14,24 +16,36 @@ function SidePanel({
 }) {
   return (
     <aside className="side-panel">
-      <div className="side-panel-tabs" role="tablist" aria-label="Proof sidebar tabs">
+      <div className="side-panel-toolbar">
+        <div className="side-panel-tabs" role="tablist" aria-label="Proof sidebar tabs">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sidePanelTab === 'manifesto'}
+            className={`side-panel-tab ${sidePanelTab === 'manifesto' ? 'active' : ''}`}
+            onClick={() => setSidePanelTab('manifesto')}
+          >
+            Manifesto
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sidePanelTab === 'trace'}
+            className={`side-panel-tab ${sidePanelTab === 'trace' ? 'active' : ''}`}
+            onClick={() => setSidePanelTab('trace')}
+          >
+            Mathematical Trace
+          </button>
+        </div>
+
         <button
           type="button"
-          role="tab"
-          aria-selected={sidePanelTab === 'manifesto'}
-          className={`side-panel-tab ${sidePanelTab === 'manifesto' ? 'active' : ''}`}
-          onClick={() => setSidePanelTab('manifesto')}
+          className="side-panel-close-btn"
+          onClick={onClose}
+          aria-label="Close proof side panel"
+          title="Close panel"
         >
-          Manifesto
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={sidePanelTab === 'trace'}
-          className={`side-panel-tab ${sidePanelTab === 'trace' ? 'active' : ''}`}
-          onClick={() => setSidePanelTab('trace')}
-        >
-          Mathematical Trace
+          <PanelRightClose size={18} strokeWidth={2.8} aria-hidden="true" />
         </button>
       </div>
 

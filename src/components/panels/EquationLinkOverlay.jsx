@@ -50,7 +50,8 @@ function EquationLinkOverlay({
   }, [anchor, prefix]);
 
   useLayoutEffect(() => {
-    updatePosition();
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(frame);
   }, [updatePosition, animationKey]);
 
   useEffect(() => {

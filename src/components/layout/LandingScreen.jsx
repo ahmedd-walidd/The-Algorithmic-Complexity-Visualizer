@@ -1,5 +1,7 @@
 function LandingScreen({ gridPresets, landingDraft, setLandingDraft, onStart }) {
   const activePreset = gridPresets.find((preset) => preset.id === landingDraft.gridPreset);
+  const previewRows = landingDraft.gridRows === '' ? '-' : landingDraft.gridRows;
+  const previewCols = landingDraft.gridCols === '' ? '-' : landingDraft.gridCols;
 
   const handlePresetSelect = (preset) => {
     if (!preset) return;
@@ -75,7 +77,7 @@ function LandingScreen({ gridPresets, landingDraft, setLandingDraft, onStart }) 
                 setLandingDraft((prev) => ({
                   ...prev,
                   gridPreset: 'custom',
-                  gridRows: Number(event.target.value),
+                  gridRows: event.target.value === '' ? '' : Number(event.target.value),
                 }))
               }
             />
@@ -91,14 +93,14 @@ function LandingScreen({ gridPresets, landingDraft, setLandingDraft, onStart }) 
                 setLandingDraft((prev) => ({
                   ...prev,
                   gridPreset: 'custom',
-                  gridCols: Number(event.target.value),
+                  gridCols: event.target.value === '' ? '' : Number(event.target.value),
                 }))
               }
             />
           </label>
           <div className="landing-grid-preview">
             Active grid: {activePreset?.id === 'custom'
-              ? `${landingDraft.gridRows} x ${landingDraft.gridCols}`
+              ? `${previewRows} x ${previewCols}`
               : `${activePreset?.rows ?? landingDraft.gridRows} x ${activePreset?.cols ?? landingDraft.gridCols}`}
           </div>
         </div>

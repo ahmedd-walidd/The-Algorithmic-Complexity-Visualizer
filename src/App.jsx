@@ -111,6 +111,8 @@ function App() {
   });
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   const [sidePanelTab, setSidePanelTab] = useState('manifesto');
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
+  const [isMazeGenerating, setIsMazeGenerating] = useState(false);
   const [isVisualizing, setIsVisualizing] = useState(false);
   const [simulationPhase, setSimulationPhase] = useState('idle');
   const [stats, setStats] = useState(null);
@@ -122,7 +124,12 @@ function App() {
   const obstacleDragModeRef = useRef(null);
 
   // -- responsive cell size --
-  const responsiveCellSize = useResponsiveCellSize(gridConfig.rows, gridConfig.cols, isRaceMode);
+  const responsiveCellSize = useResponsiveCellSize(
+    gridConfig.rows,
+    gridConfig.cols,
+    isRaceMode,
+    isSidePanelOpen
+  );
 
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [scorePopup, setScorePopup] = useState(null);
@@ -262,9 +269,9 @@ function App() {
   }, []);
 
   // DOM highlight helpers
-  const clearAllTimeouts = () => {
+  const clearAllTimeouts = useCallback(() => {
     clearTimeoutQueue(timeoutsRef);
-  };
+  }, []);
 
   const resetRunState = useCallback(() => {
     runStateRef.current = {
@@ -615,7 +622,7 @@ function App() {
     setHoveredFrontierNode(null);
     applyFrontierHoverHighlight(comparison?.frontierNodes || []);
     applyNextChoiceHighlight(comparison?.candidateNodes || []);
-  }, [getNextComparison]);
+  }, [clearAllTimeouts, getNextComparison]);
 
   const resumeRun = useCallback(() => {
     clearNextChoiceHighlight();
@@ -705,6 +712,7 @@ function App() {
       scheduleRunTick();
     },
     [
+      clearAllTimeouts,
       getNextComparison,
       isRaceMode,
       isVisualizing,
@@ -752,26 +760,44 @@ function App() {
 
   // Control-panel actions
   const handleGenerateMaze = useCallback(() => {
+    if (isMazeGenerating) return;
+
     clearAllTimeouts();
     clearVisualizerDomClasses();
     clearNextChoiceHighlight();
     resetRunState();
     clearRunSummary();
-    setGrid(
-      generateMaze({
+
+    setIsMazeGenerating(true);
+    resetVisualizationState();
+
+    const buildRequestedMaze = () => {
+      const nextMaze = generateMaze({
         rows: gridConfig.rows,
         cols: gridConfig.cols,
         start: gridEndpoints.start,
         end: gridEndpoints.end,
-      })
-    );
-    resetVisualizationState();
+      });
+
+      setGrid(nextMaze);
+      setIsMazeGenerating(false);
+    };
+
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(buildRequestedMaze);
+      });
+    } else {
+      setTimeout(buildRequestedMaze, 0);
+    }
   }, [
+    clearAllTimeouts,
     clearRunSummary,
     resetRunState,
     resetVisualizationState,
     gridConfig,
     gridEndpoints,
+    isMazeGenerating,
   ]);
 
   const handleClearBoard = useCallback(() => {
@@ -790,6 +816,7 @@ function App() {
     );
     resetVisualizationState();
   }, [
+    clearAllTimeouts,
     clearRunSummary,
     resetRunState,
     resetVisualizationState,
@@ -805,7 +832,7 @@ function App() {
     clearRunSummary();
     setGrid((prev) => clearPath(prev));
     resetVisualizationState();
-  }, [clearRunSummary, resetRunState, resetVisualizationState]);
+  }, [clearAllTimeouts, clearRunSummary, resetRunState, resetVisualizationState]);
 
   const handleRaceModeToggle = useCallback(() => {
     clearAllTimeouts();
@@ -819,6 +846,7 @@ function App() {
     setIsRaceMode((value) => !value);
     resetVisualizationState({ resetScore: false });
   }, [
+    clearAllTimeouts,
     clearRunSummary,
     resetRunState,
     resetVisualizationState,
@@ -1258,6 +1286,7 @@ function App() {
     animateAlgorithm,
     animateAlgorithmRace,
     appendExportRows,
+    clearAllTimeouts,
     grid,
     algorithm,
     isRaceMode,
@@ -1397,13 +1426,15 @@ function App() {
 
   const handleLandingStart = useCallback(() => {
     const preset = GRID_PRESETS.find((option) => option.id === landingDraft.gridPreset);
+    const draftRows = Number(landingDraft.gridRows);
+    const draftCols = Number(landingDraft.gridCols);
     const selectedRows =
       landingDraft.gridPreset === 'custom'
-        ? landingDraft.gridRows
+        ? draftRows || DEFAULT_GRID_CONFIG.rows
         : preset?.rows ?? DEFAULT_GRID_CONFIG.rows;
     const selectedCols =
       landingDraft.gridPreset === 'custom'
-        ? landingDraft.gridCols
+        ? draftCols || DEFAULT_GRID_CONFIG.cols
         : preset?.cols ?? DEFAULT_GRID_CONFIG.cols;
 
     rebuildGrid({ rows: selectedRows, cols: selectedCols });
@@ -1448,6 +1479,7 @@ function App() {
         handleRaceModeToggle={handleRaceModeToggle}
         handleVisualize={handleVisualize}
         isLegendOpen={isLegendOpen}
+        isMazeGenerating={isMazeGenerating}
         isObstacleMode={isObstacleMode}
         isPaused={isPaused}
         isQuizMode={isQuizMode}
@@ -1486,12 +1518,15 @@ function App() {
         hoveredFrontierNode={hoveredFrontierNode}
         hoveredNodeDecision={hoveredNodeDecision}
         isPaused={isPaused}
+        isSidePanelOpen={isSidePanelOpen}
+        isMazeGenerating={isMazeGenerating}
         isRaceMode={isRaceMode}
         isVisualizing={isVisualizing}
         knowledgeSpaceSnapshot={knowledgeSpaceSnapshot}
         raceResultComparison={raceResultComparison}
         renderTraceEquation={renderTraceEquation}
         responsiveCellSize={responsiveCellSize}
+        setIsSidePanelOpen={setIsSidePanelOpen}
         setSidePanelTab={setSidePanelTab}
         sidePanelTab={sidePanelTab}
         simulationPhase={simulationPhase}

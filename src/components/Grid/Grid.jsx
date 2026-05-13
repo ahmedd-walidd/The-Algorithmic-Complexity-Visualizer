@@ -9,6 +9,7 @@ function Grid({
   prefix = '',
   label = '',
   cellSize = 25,
+  isLoading = false,
 }) {
   const rowCount = grid.length;
   const colCount = grid[0]?.length || 0;
@@ -57,6 +58,7 @@ function Grid({
 
         <div
           className="grid"
+          aria-busy={isLoading}
           style={{
             gridTemplateColumns: `repeat(${colCount}, ${cellSize}px)`,
           }}
@@ -72,6 +74,13 @@ function Grid({
                 prefix={prefix}
               />
             ))
+          )}
+
+          {isLoading && (
+            <div className="grid-loading-overlay" role="status" aria-live="polite">
+              <span className="grid-loading-spinner" aria-hidden="true" />
+              <span className="grid-loading-text">Generating maze</span>
+            </div>
           )}
         </div>
       </div>

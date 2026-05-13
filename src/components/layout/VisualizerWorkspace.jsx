@@ -3,6 +3,7 @@ import RaceSection from '../race/RaceSection';
 import NodeHoverPanel from '../panels/NodeHoverPanel';
 import SidePanel from '../panels/SidePanel';
 import EquationLinkOverlay from '../panels/EquationLinkOverlay';
+import { PanelRightOpen } from 'lucide-react';
 
 function VisualizerWorkspace({
   activeHoverComparison,
@@ -15,12 +16,15 @@ function VisualizerWorkspace({
   hoveredFrontierNode,
   hoveredNodeDecision,
   isPaused,
+  isSidePanelOpen,
+  isMazeGenerating,
   isRaceMode,
   isVisualizing,
   knowledgeSpaceSnapshot,
   raceResultComparison,
   renderTraceEquation,
   responsiveCellSize,
+  setIsSidePanelOpen,
   setSidePanelTab,
   sidePanelTab,
   simulationPhase,
@@ -60,7 +64,7 @@ function VisualizerWorkspace({
   })();
 
   return (
-    <div className="main-layout">
+    <div className={`main-layout${!isSidePanelOpen ? ' side-panel-closed' : ''}`}>
       <div className="visualizer-container">
         {isRaceMode ? (
           <RaceSection
@@ -71,6 +75,7 @@ function VisualizerWorkspace({
             responsiveCellSize={responsiveCellSize}
             stats={stats}
             raceResultComparison={raceResultComparison}
+            isMazeGenerating={isMazeGenerating}
           />
         ) : (
           <Grid
@@ -79,6 +84,7 @@ function VisualizerWorkspace({
             onMouseEnter={handleMouseEnter}
             onMouseUp={handleMouseUp}
             cellSize={responsiveCellSize}
+            isLoading={isMazeGenerating}
           />
         )}
 
@@ -104,10 +110,11 @@ function VisualizerWorkspace({
         )}
       </div>
 
-      {!isRaceMode && (
+      {!isRaceMode && isSidePanelOpen && (
         <SidePanel
           sidePanelTab={sidePanelTab}
           setSidePanelTab={setSidePanelTab}
+          onClose={() => setIsSidePanelOpen(false)}
           knowledgeSpaceSnapshot={knowledgeSpaceSnapshot}
           isVisualizing={isVisualizing}
           isPaused={isPaused}
@@ -117,6 +124,18 @@ function VisualizerWorkspace({
           renderTraceEquation={renderTraceEquation}
           stats={stats}
         />
+      )}
+
+      {!isRaceMode && !isSidePanelOpen && (
+        <button
+          type="button"
+          className="side-panel-open-btn"
+          onClick={() => setIsSidePanelOpen(true)}
+          aria-label="Open proof side panel"
+          title="Open panel"
+        >
+          <PanelRightOpen size={18} strokeWidth={2.8} aria-hidden="true" />
+        </button>
       )}
     </div>
   );

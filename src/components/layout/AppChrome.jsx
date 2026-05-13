@@ -21,6 +21,7 @@ function AppChrome({
   handleRaceModeToggle,
   handleVisualize,
   isLegendOpen,
+  isMazeGenerating,
   isObstacleMode,
   isQuizMode,
   isRaceMode,
@@ -92,6 +93,7 @@ function AppChrome({
         onObstacleModeToggle={() => setIsObstacleMode((value) => !value)}
         onVisualize={handleVisualize}
         isVisualizing={isVisualizing}
+        isMazeGenerating={isMazeGenerating}
         isTimelineControlDisabled={!isVisualizing || isRaceMode || quizState.active}
         onRewind={() => jumpTimeline('backward')}
         onFastForward={() => jumpTimeline('forward')}

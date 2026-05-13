@@ -16,37 +16,40 @@ function ControlPanel({
   onObstacleModeToggle,
   onVisualize,
   isVisualizing,
+  isMazeGenerating = false,
   isTimelineControlDisabled,
   onRewind,
   onFastForward,
   onExportData,
   exportRowCount = 0,
 }) {
+  const isBusy = isVisualizing || isMazeGenerating;
+
   return (
     <div className="control-panel">
       {/* ── maze / board actions ── */}
       <div className="control-group">
-        <ControlButton onClick={onGenerateMaze} disabled={isVisualizing}>
-          Generate Maze
+        <ControlButton onClick={onGenerateMaze} disabled={isBusy}>
+          {isMazeGenerating ? 'Generating...' : 'Generate Maze'}
         </ControlButton>
-        <ControlButton onClick={onClearBoard} disabled={isVisualizing}>
+        <ControlButton onClick={onClearBoard} disabled={isBusy}>
           Clear Board
         </ControlButton>
-        <ControlButton onClick={onClearPath} disabled={isVisualizing}>
+        <ControlButton onClick={onClearPath} disabled={isBusy}>
           Clear Path
         </ControlButton>
         <ControlButton
           variant="warning"
           active={isObstacleMode}
           onClick={onObstacleModeToggle}
-          disabled={isVisualizing}
+          disabled={isBusy}
         >
           {isObstacleMode ? 'Exit Obstacle Mode' : 'Obstacle Mode'}
         </ControlButton>
         <ControlButton
           variant="success"
           onClick={onExportData}
-          disabled={isVisualizing || exportRowCount === 0}
+          disabled={isBusy || exportRowCount === 0}
           title={
             exportRowCount === 0
               ? 'Run an algorithm before exporting data'
@@ -64,26 +67,26 @@ function ControlPanel({
             <ControlButton
               active={algorithm === 'bfs'}
               onClick={() => onAlgorithmChange('bfs')}
-              disabled={isVisualizing}
+              disabled={isBusy}
             >
               BFS
             </ControlButton>
             <ControlButton
               active={algorithm === 'astar'}
               onClick={() => onAlgorithmChange('astar')}
-              disabled={isVisualizing}
+              disabled={isBusy}
             >
               A*
             </ControlButton>
           </div>
         )}
 
-        <ControlToggle checked={isRaceMode} onChange={onRaceModeToggle} disabled={isVisualizing}>
+        <ControlToggle checked={isRaceMode} onChange={onRaceModeToggle} disabled={isBusy}>
           Race Mode
         </ControlToggle>
         
         {!isRaceMode && (
-          <ControlToggle checked={isQuizMode} onChange={onQuizModeToggle} disabled={isVisualizing}>
+          <ControlToggle checked={isQuizMode} onChange={onQuizModeToggle} disabled={isBusy}>
             Pause-Prediction
           </ControlToggle>
         )}
@@ -111,12 +114,14 @@ function ControlPanel({
             &raquo;
           </ControlButton>
         </div>
-        <ControlButton variant="primary" onClick={onVisualize} disabled={isVisualizing}>
-          {isVisualizing
+        <ControlButton variant="primary" onClick={onVisualize} disabled={isBusy}>
+          {isMazeGenerating
+            ? 'Generating...'
+            : isVisualizing
             ? 'Visualizing…'
             : isRaceMode
               ? 'Start Race!'
-              : 'Visualize!'}
+                : 'Visualize!'}
         </ControlButton>
       </div>
     </div>

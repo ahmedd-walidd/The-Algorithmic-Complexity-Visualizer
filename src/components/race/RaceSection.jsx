@@ -9,6 +9,7 @@ function RaceSection({
   responsiveCellSize,
   stats,
   raceResultComparison,
+  isMazeGenerating,
 }) {
   return (
     <>
@@ -21,6 +22,7 @@ function RaceSection({
           prefix="bfs-"
           label="BFS"
           cellSize={responsiveCellSize}
+          isLoading={isMazeGenerating}
         />
         <Grid
           grid={grid}
@@ -30,6 +32,7 @@ function RaceSection({
           prefix="astar-"
           label="A*"
           cellSize={responsiveCellSize}
+          isLoading={isMazeGenerating}
         />
       </div>
       {stats && (
