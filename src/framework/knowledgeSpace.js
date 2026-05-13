@@ -146,8 +146,9 @@ export function buildKnowledgeSpaceSnapshot({
       {
         name: 'Φ',
         label: 'Perception mapping',
-        formula: 'Φ(UI_board) -> A union {empty}',
-        value: `Discretizes the painted board into a ${activeAlgorithm.toUpperCase()} search artifact.`,
+        formula: 'Φ(UI_board) -> G = (V, E, w)',
+        value:
+          'Maps open grid cells to vertices V, connects 4-neighbor moves as edges E, and assigns unit cost w(e)=1. Wall cells are excluded from V.',
       },
       {
         name: 'R',

@@ -379,6 +379,13 @@ export function buildRunSummary({
               ? (byAlgorithm.bfs.visitedCount - byAlgorithm.astar.visitedCount) /
                 byAlgorithm.bfs.visitedCount
               : 0,
+          effectiveBranchingReduction:
+            byAlgorithm.bfs.branching.effectiveBranchingFactor > 0
+              ?
+                (byAlgorithm.bfs.branching.effectiveBranchingFactor -
+                  byAlgorithm.astar.branching.effectiveBranchingFactor) /
+                byAlgorithm.bfs.branching.effectiveBranchingFactor
+              : null,
           pathLengthsEqual:
             byAlgorithm.bfs.pathLength === byAlgorithm.astar.pathLength,
           bfsVisited: byAlgorithm.bfs.visitedCount,

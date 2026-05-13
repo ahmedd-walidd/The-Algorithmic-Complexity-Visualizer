@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+﻿import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import AppChrome from './components/layout/AppChrome';
 import VisualizerWorkspace from './components/layout/VisualizerWorkspace';
 import TraceEquation from './components/panels/TraceEquation';
@@ -43,6 +43,7 @@ import {
   clearVisualizerDomClasses,
   redrawRunTimeline,
 } from './utils/domHighlights';
+import { buildPreviewPath } from './utils/previewPath';
 import useResponsiveCellSize from './hooks/useResponsiveCellSize';
 import './App.css';
 
@@ -1202,16 +1203,63 @@ function App() {
     [grid, hoveredFrontierNode, activeHoverComparison]
   );
 
+  const { activeTraceForwardPreviewPath, activeTraceBackwardPreviewPath } = useMemo(() => {
+    if (!currentTrace?.expandedNode) {
+      return {
+        activeTraceForwardPreviewPath: [],
+        activeTraceBackwardPreviewPath: [],
+      };
+    }
+
+    const anchor = currentTrace.expandedNode;
+    const backwardPath = buildPreviewPath(
+      grid,
+      { row: START_ROW, col: START_COL },
+      { row: anchor.row, col: anchor.col },
+      'bfs'
+    );
+    const forwardPath =
+      currentTrace.algorithm === 'astar'
+        ? buildPreviewPath(
+            grid,
+            { row: anchor.row, col: anchor.col },
+            { row: END_ROW, col: END_COL },
+            'astar'
+          )
+        : [];
+
+    return {
+      activeTraceForwardPreviewPath: forwardPath,
+      activeTraceBackwardPreviewPath: backwardPath,
+    };
+  }, [grid, currentTrace]);
+
   useEffect(() => {
     clearPreviewPathHighlight();
-    applyPreviewPathHighlight(hoveredBackwardPreviewPath, {
-      kind: 'backward',
-      labelMode: 'index',
-    });
-    if (activeHoverComparison?.algorithm === 'astar') {
-      applyPreviewPathHighlight(hoveredForwardPreviewPath, {
+    const backwardPreview =
+      hoveredBackwardPreviewPath.length > 0
+        ? hoveredBackwardPreviewPath
+        : activeTraceBackwardPreviewPath;
+    const forwardPreview =
+      hoveredForwardPreviewPath.length > 0
+        ? hoveredForwardPreviewPath
+        : activeTraceForwardPreviewPath;
+    const forwardAlgorithm =
+      hoveredForwardPreviewPath.length > 0
+        ? activeHoverComparison?.algorithm
+        : currentTrace?.algorithm;
+
+    if (backwardPreview.length > 0) {
+      applyPreviewPathHighlight(backwardPreview, {
+        kind: 'backward',
+        labelMode: 'index',
+      });
+    }
+
+    if (forwardAlgorithm === 'astar' && forwardPreview.length > 0) {
+      applyPreviewPathHighlight(forwardPreview, {
         kind: 'forward',
-        labelMode: 'remaining',
+        labelMode: 'heuristic',
         goalRow: END_ROW,
         goalCol: END_COL,
       });
@@ -1220,7 +1268,10 @@ function App() {
   }, [
     hoveredForwardPreviewPath,
     hoveredBackwardPreviewPath,
+    activeTraceForwardPreviewPath,
+    activeTraceBackwardPreviewPath,
     activeHoverComparison,
+    currentTrace,
   ]);
 
   const { averageTryAccuracy, averageTriesPerQuestion } = getScoreAverages(scoreState);
@@ -1296,6 +1347,7 @@ function App() {
         responsiveCellSize={responsiveCellSize}
         setSidePanelTab={setSidePanelTab}
         sidePanelTab={sidePanelTab}
+        simulationPhase={simulationPhase}
         stats={stats}
         traceNotice={traceNotice}
       />

@@ -2,6 +2,7 @@ import Grid from '../Grid/Grid';
 import RaceSection from '../race/RaceSection';
 import NodeHoverPanel from '../panels/NodeHoverPanel';
 import SidePanel from '../panels/SidePanel';
+import EquationLinkOverlay from '../panels/EquationLinkOverlay';
 
 function VisualizerWorkspace({
   activeHoverComparison,
@@ -22,9 +23,38 @@ function VisualizerWorkspace({
   responsiveCellSize,
   setSidePanelTab,
   sidePanelTab,
+  simulationPhase,
   stats,
   traceNotice,
 }) {
+  const showEquationOverlay = !isRaceMode && isVisualizing && simulationPhase !== 'done';
+
+  const equationAnchor = (() => {
+    if (!showEquationOverlay) return null;
+
+    if (hoveredFrontierNode && activeHoverComparison) {
+      return {
+        node: hoveredFrontierNode,
+        scores: hoveredFrontierNode,
+        algorithm: activeHoverComparison.algorithm,
+        label: 'hover',
+        animationKey: `hover-${hoveredFrontierNode.row}-${hoveredFrontierNode.col}-${hoveredFrontierNode.f}`,
+      };
+    }
+
+    if (currentTrace?.expandedNode && currentTrace?.expandedScores) {
+      return {
+        node: currentTrace.expandedNode,
+        scores: currentTrace.expandedScores,
+        algorithm: currentTrace.algorithm,
+        label: 'trace',
+        animationKey: `trace-${currentTrace.expansionIndex}-${currentTrace.expandedScores.f}`,
+      };
+    }
+
+    return null;
+  })();
+
   return (
     <div className="main-layout">
       <div className="visualizer-container">
@@ -45,6 +75,16 @@ function VisualizerWorkspace({
             onMouseEnter={handleMouseEnter}
             onMouseUp={handleMouseUp}
             cellSize={responsiveCellSize}
+          />
+        )}
+
+        {showEquationOverlay && equationAnchor && (
+          <EquationLinkOverlay
+            anchor={equationAnchor.node}
+            scores={equationAnchor.scores}
+            algorithm={equationAnchor.algorithm}
+            label={equationAnchor.label}
+            animationKey={equationAnchor.animationKey}
           />
         )}
 

@@ -1,19 +1,26 @@
-function TraceEquation({ scores }) {
+function TraceEquation({ scores, animate = false }) {
   if (!scores) return null;
 
+  const tokenClass = (variant) =>
+    `trace-equation-token trace-equation-token-${variant}${animate ? ' trace-equation-animate' : ''}`;
+  const valueClass = (variant) =>
+    `trace-equation-value trace-equation-value-${variant}${animate ? ' trace-equation-animate' : ''}`;
+  const equalsClass = `trace-equation-equals${animate ? ' trace-equation-animate' : ''}`;
+  const delayStyle = (delay) => (animate ? { '--delay': `${delay}ms` } : undefined);
+
   return (
-    <span className="trace-equation">
-      <span className="trace-equation-token trace-equation-token-neutral">f(n)</span>
-      <span className="trace-equation-equals">=</span>
-      <span className="trace-equation-token trace-equation-token-path">g(n)</span>
-      <span className="trace-equation-equals">+</span>
-      <span className="trace-equation-token trace-equation-token-visited">h(n)</span>
-      <span className="trace-equation-equals">=</span>
-      <span className="trace-equation-value trace-equation-value-path">{scores.g}</span>
-      <span className="trace-equation-equals">+</span>
-      <span className="trace-equation-value trace-equation-value-visited">{scores.h}</span>
-      <span className="trace-equation-equals">=</span>
-      <span className="trace-equation-value trace-equation-value-neutral">{scores.f}</span>
+    <span className={`trace-equation${animate ? ' trace-equation-animated' : ''}`}>
+      <span className={tokenClass('neutral')} style={delayStyle(0)}>f(n)</span>
+      <span className={equalsClass} style={delayStyle(80)}>=</span>
+      <span className={tokenClass('path')} style={delayStyle(140)}>g(n)</span>
+      <span className={equalsClass} style={delayStyle(200)}>+</span>
+      <span className={tokenClass('visited')} style={delayStyle(260)}>h(n)</span>
+      <span className={equalsClass} style={delayStyle(320)}>=</span>
+      <span className={valueClass('path')} style={delayStyle(380)}>{scores.g}</span>
+      <span className={equalsClass} style={delayStyle(440)}>+</span>
+      <span className={valueClass('visited')} style={delayStyle(500)}>{scores.h}</span>
+      <span className={equalsClass} style={delayStyle(560)}>=</span>
+      <span className={valueClass('neutral')} style={delayStyle(620)}>{scores.f}</span>
     </span>
   );
 }

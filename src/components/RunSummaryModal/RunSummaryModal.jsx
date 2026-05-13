@@ -5,6 +5,8 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
   if (!isOpen || !summary) return null;
 
   const { analyses, comparison, learning } = summary;
+  const bfsAnalysis = analyses.find((analysis) => analysis.algorithm === 'bfs');
+  const astarAnalysis = analyses.find((analysis) => analysis.algorithm === 'astar');
 
   const getMetricTone = (algorithm, metric) => {
     if (!comparison) return 'equal';
@@ -37,6 +39,8 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
     return formatNumber(Math.abs(value), digits);
   };
 
+  const formatBranching = (value) => formatNumber(value, 2);
+
   const showRaceComparison = Boolean(isRaceMode && comparison);
 
   return (
@@ -64,6 +68,47 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
             A* expanded {comparison.astarVisited} nodes versus BFS expanding {comparison.bfsVisited} nodes.
             That is a {formatPercent(comparison.visitedReduction)} reduction in expanded states on this board.
             Both algorithms reported {comparison.pathLengthsEqual ? 'the same path length' : 'different path lengths'}.
+          </p>
+        )}
+      </section>
+
+      <section className="run-summary-section">
+        <h3>Branching Factor And Heuristic Effect</h3>
+        <div className="run-summary-algorithms">
+          {analyses.map((analysis) => (
+            <section
+              key={`${analysis.algorithm}-branching`}
+              className={`run-summary-card ${isRaceMode ? `run-summary-card--${analysis.algorithm}` : ''}`}
+            >
+              <h3>{analysis.displayName}</h3>
+              <div className="run-summary-metric-grid">
+                <div className="run-summary-metric">
+                  <span>b_graph</span>
+                  <strong>{formatBranching(analysis.graph.graphBranchingFactor)}</strong>
+                </div>
+                <div className="run-summary-metric">
+                  <span>b_observed</span>
+                  <strong>{formatBranching(analysis.branching.averageLegalBranching)}</strong>
+                </div>
+                <div className="run-summary-metric">
+                  <span>b_effective</span>
+                  <strong>{formatBranching(analysis.branching.effectiveBranchingFactor)}</strong>
+                </div>
+              </div>
+              <p>
+                b_graph is the average branching implied by the grid topology. b_observed reports the
+                legal successor branching seen in the trace. b_effective is the branching factor that
+                would generate the observed expansions at the measured depth.
+              </p>
+            </section>
+          ))}
+        </div>
+        {comparison && bfsAnalysis && astarAnalysis && Number.isFinite(comparison.effectiveBranchingReduction) && (
+          <p>
+            Heuristic impact: A* reduced effective branching from b={formatBranching(bfsAnalysis.branching.effectiveBranchingFactor)}
+            {' '}to b={formatBranching(astarAnalysis.branching.effectiveBranchingFactor)}
+            {' '}({formatPercent(comparison.effectiveBranchingReduction, 1)} reduction), which shrinks the
+            effective search space on this maze.
           </p>
         )}
       </section>
