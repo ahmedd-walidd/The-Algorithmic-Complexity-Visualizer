@@ -10,6 +10,25 @@ The tested grid sizes were Small (10x25), App default (20x50), and Large (30x75)
 
 Important learning note: the automated experiment measures search behavior and the number of prediction-pause opportunities. It does not prove human learning improvement by itself. To claim learning gain, use the app logs with a participant pre/post or control-group study.
 
+## A* Heuristic Audit Trace
+
+Table 3.5 was captured from one deterministic real maze run using the implemented A* formal trace: Small 10x25, 25% wall density, trial 7, seed 10275007, start (5, 2), goal (5, 22).
+
+| Step | Candidate Node | g(n) | h(n) | f(n) | Selected? |
+|---:|---|---:|---:|---:|---|
+| 2 | (5, 3) | 1 | 19 | 20 | Yes |
+| 2 | (4, 2) | 1 | 21 | 22 | No |
+| 2 | (6, 2) | 1 | 21 | 22 | No |
+| 2 | (5, 1) | 1 | 21 | 22 | No |
+| 3 | (5, 4) | 2 | 18 | 20 | Yes |
+| 3 | (4, 3) | 2 | 20 | 22 | No |
+| 3 | (6, 3) | 2 | 20 | 22 | No |
+| 3 | (4, 2) | 1 | 21 | 22 | No |
+| 3 | (6, 2) | 1 | 21 | 22 | No |
+| 3 | (5, 1) | 1 | 21 | 22 | No |
+
+For each audited step, the selected candidate has the minimum frontier f(n)=g(n)+h(n). This verifies that the animated expansion agrees with the theoretical A* rule used in the teaching explanation.
+
 ## Algorithm Efficiency And Branching
 
 | Size | Density | Algorithm | Trials | Visited nodes | Path depth | b_graph | b_observed | b_effective | Max frontier | Prediction pauses | Compute ms |

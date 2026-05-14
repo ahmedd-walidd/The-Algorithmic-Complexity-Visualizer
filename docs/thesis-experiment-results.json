@@ -1940,6 +1940,135 @@
       "astarPromptsMean": 4
     }
   ],
+  "astarHeuristicAuditTrace": {
+    "source": "Captured from scripts/runThesisExperiments.js using the implemented astar() formal trace.",
+    "size": "Small",
+    "gridRows": 10,
+    "cols": 25,
+    "density": 0.25,
+    "trial": 7,
+    "seed": 10275007,
+    "start": {
+      "row": 5,
+      "col": 2
+    },
+    "end": {
+      "row": 5,
+      "col": 22
+    },
+    "rows": [
+      {
+        "step": 2,
+        "candidateNode": [
+          5,
+          3
+        ],
+        "g": 1,
+        "h": 19,
+        "f": 20,
+        "selected": true
+      },
+      {
+        "step": 2,
+        "candidateNode": [
+          4,
+          2
+        ],
+        "g": 1,
+        "h": 21,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 2,
+        "candidateNode": [
+          6,
+          2
+        ],
+        "g": 1,
+        "h": 21,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 2,
+        "candidateNode": [
+          5,
+          1
+        ],
+        "g": 1,
+        "h": 21,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 3,
+        "candidateNode": [
+          5,
+          4
+        ],
+        "g": 2,
+        "h": 18,
+        "f": 20,
+        "selected": true
+      },
+      {
+        "step": 3,
+        "candidateNode": [
+          4,
+          3
+        ],
+        "g": 2,
+        "h": 20,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 3,
+        "candidateNode": [
+          6,
+          3
+        ],
+        "g": 2,
+        "h": 20,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 3,
+        "candidateNode": [
+          4,
+          2
+        ],
+        "g": 1,
+        "h": 21,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 3,
+        "candidateNode": [
+          6,
+          2
+        ],
+        "g": 1,
+        "h": 21,
+        "f": 22,
+        "selected": false
+      },
+      {
+        "step": 3,
+        "candidateNode": [
+          5,
+          1
+        ],
+        "g": 1,
+        "h": 21,
+        "f": 22,
+        "selected": false
+      }
+    ]
+  },
   "rawTrials": [
     {
       "size": "Small",

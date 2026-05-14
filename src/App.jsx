@@ -1191,21 +1191,25 @@ function App() {
       const gAstar = cloneGrid(cleanGrid);
 
       const bfsStart = performance.now();
-      const bfsVisited = bfs(
+      const bfsResult = bfs(
         gBfs,
         gBfs[gridEndpoints.start.row][gridEndpoints.start.col],
-        gBfs[gridEndpoints.end.row][gridEndpoints.end.col]
+        gBfs[gridEndpoints.end.row][gridEndpoints.end.col],
+        { withTrace: true }
       );
+      const bfsVisited = bfsResult.visitedNodesInOrder;
       const bfsDurationMs = performance.now() - bfsStart;
       const bfsEnd = gBfs[gridEndpoints.end.row][gridEndpoints.end.col];
       const bfsPathNodes = bfsEnd.isVisited ? getNodesInShortestPathOrder(bfsEnd) : [];
 
       const astarStart = performance.now();
-      const astarVisited = astar(
+      const astarResult = astar(
         gAstar,
         gAstar[gridEndpoints.start.row][gridEndpoints.start.col],
-        gAstar[gridEndpoints.end.row][gridEndpoints.end.col]
+        gAstar[gridEndpoints.end.row][gridEndpoints.end.col],
+        { withTrace: true }
       );
+      const astarVisited = astarResult.visitedNodesInOrder;
       const astarDurationMs = performance.now() - astarStart;
       const astarEnd = gAstar[gridEndpoints.end.row][gridEndpoints.end.col];
       const astarPathNodes = astarEnd.isVisited ? getNodesInShortestPathOrder(astarEnd) : [];
@@ -1214,13 +1218,13 @@ function App() {
         bfs: {
           visited: bfsVisited.length,
           pathNodes: bfsPathNodes,
-          formalTrace: [],
+          formalTrace: bfsResult.formalTraceByIndex || [],
           durationMs: bfsDurationMs,
         },
         astar: {
           visited: astarVisited.length,
           pathNodes: astarPathNodes,
-          formalTrace: [],
+          formalTrace: astarResult.formalTraceByIndex || [],
           durationMs: astarDurationMs,
         },
       };
@@ -1259,7 +1263,7 @@ function App() {
         }
       };
 
-      setTraceNotice('Detailed formal trace is disabled in Race Mode to avoid mixed proof streams.');
+      setTraceNotice('Detailed side-panel trace is disabled in Race Mode, but each algorithm still contributes formal trace data to the result summary.');
 
       // race mode: independent animation loops for both sides
       animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone, onPathStart);

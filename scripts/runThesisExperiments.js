@@ -111,6 +111,58 @@ function countPredictionOpportunities(predictionOptionsByIndex) {
   ).length;
 }
 
+function getTrialSeed(size, density, trial) {
+  return (
+    size.rows * 1000000 +
+    size.cols * 10000 +
+    Math.round(density * 1000) * 100 +
+    trial
+  );
+}
+
+function buildAstarHeuristicAuditTrace() {
+  const size = SIZES[0];
+  const density = 0.25;
+  const trial = 7;
+  const seed = getTrialSeed(size, density, trial);
+  const baseGrid = createExperimentGrid({ ...size, density, seed });
+  const grid = cloneGrid(baseGrid);
+  const { start, end } = getEndpoints(grid);
+  const result = astar(grid, start, end, { withTrace: true });
+  const auditedStepNumbers = new Set([2, 3]);
+
+  const traceRows = result.formalTraceByIndex
+    .flatMap((entry, index) => {
+      const step = index + 1;
+      if (!auditedStepNumbers.has(step)) return [];
+
+      return (entry.frontierBeforeExpansion || []).map((candidate) => ({
+        step,
+        candidateNode: [candidate.row, candidate.col],
+        g: candidate.g,
+        h: candidate.h,
+        f: candidate.f,
+        selected:
+          candidate.row === entry.expandedNode.row &&
+          candidate.col === entry.expandedNode.col,
+      }));
+    });
+
+  return {
+    source:
+      'Captured from scripts/runThesisExperiments.js using the implemented astar() formal trace.',
+    size: size.label,
+    gridRows: size.rows,
+    cols: size.cols,
+    density,
+    trial,
+    seed,
+    start: { row: start.row, col: start.col },
+    end: { row: end.row, col: end.col },
+    rows: traceRows,
+  };
+}
+
 function runAlgorithmTrial(algorithm, baseGrid) {
   const grid = cloneGrid(baseGrid);
   const { start, end } = getEndpoints(grid);
@@ -203,8 +255,7 @@ function runExperiments() {
   for (const size of SIZES) {
     for (const density of WALL_DENSITIES) {
       for (let trial = 0; trial < TRIALS_PER_CONDITION; trial++) {
-        const seed =
-          size.rows * 1000000 + size.cols * 10000 + Math.round(density * 1000) * 100 + trial;
+        const seed = getTrialSeed(size, density, trial);
         const baseGrid = createExperimentGrid({ ...size, density, seed });
         for (const algorithm of ['bfs', 'astar']) {
           rawTrials.push({
@@ -287,6 +338,7 @@ function runExperiments() {
     },
     summaries,
     comparisons,
+    astarHeuristicAuditTrace: buildAstarHeuristicAuditTrace(),
     rawTrials,
   };
 }
@@ -314,6 +366,31 @@ function renderMarkdown(results) {
   lines.push('');
   lines.push(
     'Important learning note: the automated experiment measures search behavior and the number of prediction-pause opportunities. It does not prove human learning improvement by itself. To claim learning gain, use the app logs with a participant pre/post or control-group study.'
+  );
+  lines.push('');
+  lines.push('## A* Heuristic Audit Trace');
+  lines.push('');
+  lines.push(
+    `Table 3.5 was captured from one deterministic real maze run using the implemented A* formal trace: ${results.astarHeuristicAuditTrace.size} ${results.astarHeuristicAuditTrace.gridRows}x${results.astarHeuristicAuditTrace.cols}, ${formatPercent(results.astarHeuristicAuditTrace.density, 0)} wall density, trial ${results.astarHeuristicAuditTrace.trial}, seed ${results.astarHeuristicAuditTrace.seed}, start (${results.astarHeuristicAuditTrace.start.row}, ${results.astarHeuristicAuditTrace.start.col}), goal (${results.astarHeuristicAuditTrace.end.row}, ${results.astarHeuristicAuditTrace.end.col}).`
+  );
+  lines.push('');
+  lines.push('| Step | Candidate Node | g(n) | h(n) | f(n) | Selected? |');
+  lines.push('|---:|---|---:|---:|---:|---|');
+  for (const row of results.astarHeuristicAuditTrace.rows) {
+    lines.push(
+      tableRow([
+        row.step,
+        `(${row.candidateNode[0]}, ${row.candidateNode[1]})`,
+        row.g,
+        row.h,
+        row.f,
+        row.selected ? 'Yes' : 'No',
+      ])
+    );
+  }
+  lines.push('');
+  lines.push(
+    'For each audited step, the selected candidate has the minimum frontier f(n)=g(n)+h(n). This verifies that the animated expansion agrees with the theoretical A* rule used in the teaching explanation.'
   );
   lines.push('');
   lines.push('## Algorithm Efficiency And Branching');

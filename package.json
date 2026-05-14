@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "experiments": "node scripts/runThesisExperiments.js",
     "figures": "node scripts/captureThesisFigures.mjs",
+    "figures:branching50": "node scripts/captureBranching50x50.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

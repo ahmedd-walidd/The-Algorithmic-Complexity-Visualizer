@@ -1,5 +1,25 @@
 # Thesis Figure Captions
 
+## figure-3-4-1-50x50-grid-model.png
+Suggested placement: Chapter 3, Section 3.4.1, immediately after the equations |V| = 2500 and |E| = 4900.
+
+Caption: Obstacle-free 50 x 50 grid instantiated in the implemented visualizer. The board contains |V| = 2500 cells and, under 4-connected movement, |E| = 4900 undirected adjacency edges.
+
+## figure-3-4-2-50x50-race-start.png
+Suggested placement: Chapter 3, Section 3.4.1, optional setup figure before the BFS and A* branching-factor comparison.
+
+Caption: Race Mode initialized on the same obstacle-free 50 x 50 graph for BFS and A*. Both algorithms are evaluated on the identical start state s=(25,5) and target state t=(25,44).
+
+## figure-3-4-3-50x50-bfs-astar-result.png
+Suggested placement: Chapter 3, Section 3.4.1, immediately after the paragraph ending "BFS cannot expand more than all reachable cells: NBFS <= 2500."
+
+Caption: Completed 50 x 50 obstacle-free comparison. BFS expanded 1625 states before reaching the target, while A* expanded 40 states and followed the optimal path directly.
+
+## figure-3-4-4-50x50-branching-analysis.png
+Suggested placement: Chapter 3, Section 3.4.1, immediately after the final sentence about "heuristic-induced search-space compression."
+
+Caption: Formal result analysis for the 50 x 50 run. The implementation reports b_graph = 3.92 for both algorithms, b_observed = 3.94 for BFS and 3.90 for A*, and b_effective reduced from 1.15 for BFS to 1.00 for A*.
+
 ## figure-4-1-system-overview.png
 Suggested placement: Chapter 4, Section 4.1 System Overview / 4.1.2 Key Components
 
