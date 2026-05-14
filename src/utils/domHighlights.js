@@ -89,9 +89,9 @@ export function applyPreviewPathHighlight(nodes, options = {}) {
     })();
 
     if (isForward) {
-      el.dataset.forwardLabel = String(labelValue);
+      el.dataset.forwardLabel = labelMode === 'heuristic' ? `h ${labelValue}` : String(labelValue);
     } else {
-      el.dataset.backwardLabel = String(labelValue);
+      el.dataset.backwardLabel = labelMode === 'index' ? `g ${labelValue}` : String(labelValue);
     }
   });
 }

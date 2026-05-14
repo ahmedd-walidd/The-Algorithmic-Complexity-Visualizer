@@ -77,28 +77,37 @@
 .node-hover-preview-forward::after,
 .node-hover-preview-backward::before {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 0 3px;
-  border-radius: 6px;
-  font-size: 9px;
-  font-weight: 700;
+  left: 50%;
+  z-index: 4;
+  min-width: calc(var(--cell-size, 25px) - 4px);
+  max-width: calc(var(--cell-size, 25px) - 2px);
+  padding: 1px 2px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: clamp(7px, calc(var(--cell-size, 25px) * 0.34), 9px);
+  font-weight: 900;
   line-height: 1.1;
   color: #0b1020;
   background: #e0f2fe;
   border: 1px solid rgba(56, 189, 248, 0.7);
   text-shadow: none;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
   pointer-events: none;
 }
 
 .node-hover-preview-forward::after {
   content: attr(data-forward-label);
-  right: 1px;
+  top: 1px;
+  transform: translateX(-50%);
 }
 
 .node-hover-preview-backward::before {
   content: attr(data-backward-label);
-  left: 1px;
+  bottom: 1px;
+  transform: translateX(-50%);
   background: #fde68a;
   border-color: rgba(250, 204, 21, 0.85);
 }

@@ -23,7 +23,10 @@ function Grid({
     <div className="grid-container">
       {label && <h2 className="grid-label">{label}</h2>}
 
-      <div className="grid-with-axes" style={{ '--cell-size': `${cellSize}px` }}>
+      <div
+        className={`grid-with-axes${cellSize < 16 ? ' grid-with-axes-compact-labels' : ''}`}
+        style={{ '--cell-size': `${cellSize}px` }}
+      >
         <div className="axis-corner" aria-hidden="true">
           y\x
         </div>

@@ -1,4 +1,5 @@
 import ModalShell from '../common/ModalShell/ModalShell';
+import { GRID_LIMITS } from '../../utils/gridHelpers';
 
 const SPEED_OPTIONS = [
   { value: 'slow', label: 'Slow', detail: 'Easier to follow' },
@@ -142,8 +143,8 @@ function SettingsModal({
             Rows
             <input
               type="number"
-              min="8"
-              max="60"
+              min={GRID_LIMITS.minRows}
+              max={GRID_LIMITS.maxRows}
               value={settingsDraft.gridRows}
               onChange={(event) =>
                 setSettingsDraft((prev) => ({
@@ -157,8 +158,8 @@ function SettingsModal({
             Columns
             <input
               type="number"
-              min="12"
-              max="90"
+              min={GRID_LIMITS.minCols}
+              max={GRID_LIMITS.maxCols}
               value={settingsDraft.gridCols}
               onChange={(event) =>
                 setSettingsDraft((prev) => ({

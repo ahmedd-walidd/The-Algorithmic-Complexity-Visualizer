@@ -3,13 +3,16 @@ import AppChrome from './components/layout/AppChrome';
 import VisualizerWorkspace from './components/layout/VisualizerWorkspace';
 import TraceEquation from './components/panels/TraceEquation';
 import LandingScreen from './components/layout/LandingScreen';
+import TruthScannerPage from './components/layout/TruthScannerPage';
 import {
   createGrid,
   clearPath,
   cloneGrid,
   getNodesInShortestPathOrder,
   getGridEndpoints,
+  getRandomGridEndpoints,
   DEFAULT_GRID_CONFIG,
+  GRID_LIMITS,
 } from './utils/gridHelpers';
 import { generateMaze } from './utils/mazeGenerator';
 import { bfs } from './algorithms/bfs';
@@ -80,6 +83,12 @@ const INITIAL_SCORE_STATE = {
 
 function App() {
   // -- state --
+  const getInitialRoute = () => {
+    const path = window.location.pathname;
+    if (path === '/visualizer' || path === '/truth-scanner') return path;
+    return '/';
+  };
+  const [currentRoute, setCurrentRoute] = useState(getInitialRoute);
   const [gridConfig, setGridConfig] = useState(DEFAULT_GRID_CONFIG);
   const [gridEndpoints, setGridEndpoints] = useState(() =>
     getGridEndpoints(DEFAULT_GRID_CONFIG.rows, DEFAULT_GRID_CONFIG.cols)
@@ -102,12 +111,12 @@ function App() {
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(DEFAULT_SETTINGS);
-  const [isLandingOpen, setIsLandingOpen] = useState(true);
   const [landingDraft, setLandingDraft] = useState({
     gridPreset: 'default',
     gridRows: DEFAULT_SETTINGS.gridRows,
     gridCols: DEFAULT_SETTINGS.gridCols,
     showEquationOverlay: DEFAULT_SETTINGS.showEquationOverlay,
+    tutorialStep: 'setup',
   });
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   const [sidePanelTab, setSidePanelTab] = useState('manifesto');
@@ -152,6 +161,17 @@ function App() {
   const pausedPhaseRef = useRef('idle');
 
   const simulationPhaseDisplay = getSimulationPhaseDisplay(simulationPhase);
+
+  const navigateTo = useCallback((path) => {
+    const normalizedPath =
+      path === '/visualizer' || path === '/truth-scanner' ? path : '/';
+
+    if (window.location.pathname !== normalizedPath) {
+      window.history.pushState({}, '', normalizedPath);
+    }
+    setCurrentRoute(normalizedPath);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, []);
 
   const isPausedRef = useRef(false);
   const isQuizModeRef = useRef(false);
@@ -240,6 +260,18 @@ function App() {
   }, [formalTrace]);
 
   useEffect(() => {
+    const onPopState = () => {
+      const path = window.location.pathname;
+      setCurrentRoute(path === '/visualizer' || path === '/truth-scanner' ? path : '/');
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return;
 
@@ -315,8 +347,14 @@ function App() {
       resetRunState();
       clearRunSummary();
 
-      const rows = Math.max(8, Math.min(60, Number(nextConfig.rows) || DEFAULT_GRID_CONFIG.rows));
-      const cols = Math.max(12, Math.min(90, Number(nextConfig.cols) || DEFAULT_GRID_CONFIG.cols));
+      const rows = Math.max(
+        GRID_LIMITS.minRows,
+        Math.min(GRID_LIMITS.maxRows, Number(nextConfig.rows) || DEFAULT_GRID_CONFIG.rows)
+      );
+      const cols = Math.max(
+        GRID_LIMITS.minCols,
+        Math.min(GRID_LIMITS.maxCols, Number(nextConfig.cols) || DEFAULT_GRID_CONFIG.cols)
+      );
       const endpoints = getGridEndpoints(rows, cols);
 
       setGridConfig({ rows, cols });
@@ -765,6 +803,8 @@ function App() {
     clearAllTimeouts();
     clearVisualizerDomClasses();
     clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
+    clearPreviewPathHighlight();
     resetRunState();
     clearRunSummary();
 
@@ -772,13 +812,15 @@ function App() {
     resetVisualizationState();
 
     const buildRequestedMaze = () => {
+      const nextEndpoints = getRandomGridEndpoints(gridConfig.rows, gridConfig.cols);
       const nextMaze = generateMaze({
         rows: gridConfig.rows,
         cols: gridConfig.cols,
-        start: gridEndpoints.start,
-        end: gridEndpoints.end,
+        start: nextEndpoints.start,
+        end: nextEndpoints.end,
       });
 
+      setGridEndpoints(nextEndpoints);
       setGrid(nextMaze);
       setIsMazeGenerating(false);
     };
@@ -796,7 +838,6 @@ function App() {
     resetRunState,
     resetVisualizationState,
     gridConfig,
-    gridEndpoints,
     isMazeGenerating,
   ]);
 
@@ -804,6 +845,8 @@ function App() {
     clearAllTimeouts();
     clearVisualizerDomClasses();
     clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
+    clearPreviewPathHighlight();
     resetRunState();
     clearRunSummary();
     setGrid(
@@ -828,6 +871,8 @@ function App() {
     clearAllTimeouts();
     clearVisualizerDomClasses();
     clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
+    clearPreviewPathHighlight();
     resetRunState();
     clearRunSummary();
     setGrid((prev) => clearPath(prev));
@@ -1119,6 +1164,8 @@ function App() {
     clearAllTimeouts();
     clearVisualizerDomClasses();
     clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
+    clearPreviewPathHighlight();
     resetRunState();
     clearRunSummary();
 
@@ -1346,7 +1393,9 @@ function App() {
   );
 
   const { activeTraceForwardPreviewPath, activeTraceBackwardPreviewPath } = useMemo(() => {
-    if (!showEquationOverlay || !currentTrace?.expandedNode) {
+    const shouldShowNodeScoreLabels = isPaused || quizState.active;
+
+    if (!showEquationOverlay || !shouldShowNodeScoreLabels || !currentTrace?.expandedNode) {
       return {
         activeTraceForwardPreviewPath: [],
         activeTraceBackwardPreviewPath: [],
@@ -1374,7 +1423,7 @@ function App() {
       activeTraceForwardPreviewPath: forwardPath,
       activeTraceBackwardPreviewPath: backwardPath,
     };
-  }, [grid, currentTrace, gridEndpoints, showEquationOverlay]);
+  }, [grid, currentTrace, gridEndpoints, showEquationOverlay, isPaused, quizState.active]);
 
   useEffect(() => {
     clearPreviewPathHighlight();
@@ -1445,18 +1494,25 @@ function App() {
       gridRows: selectedRows,
       gridCols: selectedCols,
     }));
-    setIsLandingOpen(false);
-  }, [landingDraft, rebuildGrid]);
+    navigateTo('/visualizer');
+  }, [landingDraft, rebuildGrid, navigateTo]);
 
   // Render
-  if (isLandingOpen) {
+  if (currentRoute === '/') {
     return (
       <LandingScreen
         gridPresets={GRID_PRESETS}
+        gridLimits={GRID_LIMITS}
         landingDraft={landingDraft}
         setLandingDraft={setLandingDraft}
         onStart={handleLandingStart}
       />
+    );
+  }
+
+  if (currentRoute === '/truth-scanner') {
+    return (
+      <TruthScannerPage onNavigate={navigateTo} />
     );
   }
 
@@ -1536,6 +1592,16 @@ function App() {
         stats={stats}
         traceNotice={traceNotice}
       />
+
+      <div className="lab-sequence-actions">
+        <button
+          type="button"
+          className="truth-primary-btn"
+          onClick={() => navigateTo('/truth-scanner')}
+        >
+          Continue To Truth Scanner
+        </button>
+      </div>
     </div>
   );
 }

@@ -11,12 +11,13 @@ function useResponsiveCellSize(rowCount, colCount, isRaceMode = false, isSidePan
       const gridChromeWidth = 48;
       const minCellSize = 8;
       const maxCellSize = !isRaceMode && !isSidePanelOpen ? 34 : 28;
-      const reservedHeight = 320;
+      const reservedHeight = isRaceMode ? 330 : 300;
+      const gridChromeHeight = 34;
 
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const availableWidth = Math.max(260, vw - appPadding - gridChromeWidth);
-      const availableHeight = Math.max(200, vh - reservedHeight);
+      const availableHeight = Math.max(180, vh - reservedHeight - gridChromeHeight);
       const safeCols = Math.max(1, colCount || 1);
       const safeRows = Math.max(1, rowCount || 1);
 
@@ -32,9 +33,7 @@ function useResponsiveCellSize(rowCount, colCount, isRaceMode = false, isSidePan
       }
 
       const heightBoundSize = Math.floor(availableHeight / safeRows);
-      const constrainedSize = isRaceMode
-        ? Math.min(calculatedSize, heightBoundSize)
-        : calculatedSize;
+      const constrainedSize = Math.min(calculatedSize, heightBoundSize);
 
       const clampedSize = Math.max(minCellSize, Math.min(maxCellSize, constrainedSize));
       setCellSize(clampedSize);
