@@ -10,7 +10,7 @@ const CONCEPTS = [
     plain:
       'A maze is treated as a finite graph: every traversable cell is a vertex and every legal movement between adjacent cells is an edge.',
     formal:
-      'Let V be the set of non-wall cells. Let E contain an undirected edge (u,v) when u and v are orthogonally adjacent in the grid. Search algorithms operate over G, not over pixels.',
+      'Let M=(R,C,W,s,g) where R and C are grid row/column counts, W is the wall set, s is the start cell, and g is the goal cell. Let V be the set of non-wall cells. Let E contain an undirected edge (u,v) when u and v are orthogonally adjacent in the grid. Search algorithms operate over G, not over pixels.',
     visual: '[cell] -- [cell] -- [cell]\n   |                 |\n[cell]     wall     [cell]',
   },
   {
@@ -20,7 +20,7 @@ const CONCEPTS = [
     plain:
       'Branching factor measures how many choices a search algorithm typically has after expanding a node.',
     formal:
-      <>For a grid graph, <MathExpr>b<sub>graph</sub> = <MathFraction numerator="2|E|" denominator="|V|" /></MathExpr> is the mean degree of the searchable graph. For a trace, <MathExpr>b<sub>observed</sub></MathExpr> is legal successor audits over expanded nodes.</>,
+      <>For a grid graph, <MathExpr>b<sub>graph</sub> = <MathFraction numerator="2|E|" denominator="|V|" /></MathExpr> where <MathExpr>V</MathExpr> is the set of non-wall cells and <MathExpr>E</MathExpr> is the adjacency edge set. For a trace, <MathExpr>b<sub>observed</sub></MathExpr> is the average number of legal successors per expansion in the recorded run.</>,
     visual: '        up\n         |\nleft -- node -- right\n         |\n       down',
   },
   {
@@ -30,7 +30,7 @@ const CONCEPTS = [
     plain:
       'Effective branching asks: what branching factor would explain the number of states actually expanded by this run?',
     formal:
-      'Given N expanded states and solution depth d, solve the expansion series for b*. A lower b* means the algorithm behaved as if the search tree were narrower.',
+      <>Given <MathExpr>N</MathExpr> expanded states and solution depth <MathExpr>d</MathExpr>, solve the expansion series for <MathExpr>b^*</MathExpr>. Here <MathExpr>N</MathExpr> is the count of expanded states in the run and <MathExpr>d</MathExpr> is the solution depth of the returned path.</>,
     visual: 'depth 0: 1\n depth 1: b*\n depth 2: (b*)²\n depth d: (b*)ᵈ',
   },
   {
@@ -40,7 +40,7 @@ const CONCEPTS = [
     plain:
       'g(n) is the known path cost already paid to reach a node.',
     formal:
-      'In this unit-cost grid, each move costs 1, so g(n) equals the number of edges on the current best path from the start state s to node n.',
+      'In this unit-cost grid, each move costs 1, so g(n) equals the number of edges on the current best path from the start state s to node n. Here s is the start cell and g is the goal cell in M=(R,C,W,s,g).',
     visual: 'S -> . -> . -> n\ncost: 0    1    2    3',
   },
   {
@@ -50,7 +50,7 @@ const CONCEPTS = [
     plain:
       'h(n) estimates how far a node is from the goal before the algorithm has actually traveled there.',
     formal:
-      'A heuristic guides search by estimating remaining cost. If h never overestimates the true shortest remaining cost, it is admissible.',
+      'A heuristic guides search by estimating remaining cost to the goal cell g. If h never overestimates the true shortest remaining cost, it is admissible.',
     visual: 'n -> ? -> ? -> G\nestimated remaining distance = h(n)',
   },
   {
@@ -60,7 +60,7 @@ const CONCEPTS = [
     plain:
       'f(n) is A*’s priority score: paid cost plus estimated remaining cost.',
     formal:
-      'A* repeatedly expands a frontier node with minimum f. This combines path-so-far evidence with goal-directed evidence.',
+      'A* repeatedly expands a frontier node with minimum f. Here g(n) is the path cost so far and h(n) is the estimated remaining cost to the goal.',
     visual: 'g(n): S -> ... -> n\nh(n): n -> ... -> G\nf(n): complete route estimate',
   },
   {
@@ -80,7 +80,7 @@ const CONCEPTS = [
     plain:
       'An admissible heuristic is optimistic: it never claims the goal is cheaper than it truly is.',
     formal:
-      <>If <MathExpr>h(n)</MathExpr> never overestimates the optimal remaining cost <MathExpr>h<sup>*</sup>(n)</MathExpr>, A* is guaranteed to preserve optimality on graphs with non-negative edge costs.</>,
+      <>If <MathExpr>h(n)</MathExpr> never overestimates the optimal remaining cost <MathExpr>h<sup>*</sup>(n)</MathExpr> (the true shortest cost from n to the goal), A* is guaranteed to preserve optimality on graphs with non-negative edge costs.</>,
     visual: 'estimated ≤ true remaining cost\noptimism preserves optimal paths',
   },
   {
@@ -90,7 +90,7 @@ const CONCEPTS = [
     plain:
       'Consistency means the heuristic obeys a triangle inequality across every edge.',
     formal:
-      <>For each edge from n to m with cost c(n,m), consistency requires <MathExpr>h(n) ≤ c(n,m)+h(m)</MathExpr>. This keeps f-values non-decreasing along optimal paths.</>,
+      <>For each edge from n to m with cost <MathExpr>c(n,m)</MathExpr> (1 per grid move), consistency requires <MathExpr>h(n) ≤ c(n,m)+h(m)</MathExpr>. This keeps f-values non-decreasing along optimal paths.</>,
     visual: 'n --cost--> m --estimate--> G\nh(n) cannot beat that route',
   },
   {
@@ -100,7 +100,7 @@ const CONCEPTS = [
     plain:
       'Relaxation is the check that decides whether a newly found route to a neighbor is better.',
     formal:
-      <>For neighbor m of node n, compute <MathExpr>g<sub>new</sub> = g(n)+c(n,m)</MathExpr>. If <MathExpr>g<sub>new</sub></MathExpr> improves the best known g(m), update g(m), f(m), and previousNode(m).</>,
+      <>For neighbor m of node n, compute <MathExpr>g<sub>new</sub> = g(n)+c(n,m)</MathExpr>, where <MathExpr>g<sub>new</sub></MathExpr> is the candidate cost and <MathExpr>g<sub>old</sub></MathExpr> is the best known cost to m. If <MathExpr>g<sub>new</sub></MathExpr> improves g(m), update g(m), f(m), and previousNode(m).</>,
     visual: 'old route to m: cost 9\nnew route via n: cost 6\nupdate m',
   },
   {
@@ -120,7 +120,7 @@ const CONCEPTS = [
     plain:
       'Space complexity measures how much memory the algorithm needs as the graph grows.',
     formal:
-      'Both BFS and A* can store O(|V|) nodes in visited/frontier structures on a finite grid. The frontier peak is the practical memory-pressure signal.',
+      'Both BFS and A* can store O(|V|) nodes in visited/frontier structures on a finite grid, where |V| is the number of non-wall cells. The frontier peak is the practical memory-pressure signal.',
     visual: 'memory = visited set + frontier + parent links',
   },
 ];
@@ -133,11 +133,11 @@ const MANIFESTO_TABS = [
     label: 'Knowledge Space',
     title: <MathExpr>K = (A, D, S)</MathExpr>,
     body:
-      'The thesis frames the system as a constrained knowledge space. A claim is not accepted because it sounds plausible; it must be supported by an artifact, evidence document, and schema dimension.',
+      'The thesis frames the system as a constrained knowledge space. A claim is not accepted because it sounds plausible; it must be supported by an artifact, evidence document, and schema dimension. Here A is the artifact set, D is the evidence document set, and S is the schema dimension set.',
     items: [
-      ['A - Artifacts', <><MathExpr>a<sub>i</sub> = (M<sub>i</sub>, G<sub>i</sub>, alg<sub>i</sub>, trace<sub>i</sub>)</MathExpr>: maze, mapped graph, selected algorithm, and execution trace.</>],
-      ['D - Evidence', <><MathExpr>d<sub>Φ</sub>, d<sub>BFS</sub>, d<sub>A*</sub>, d<sub>h</sub>, d<sub>b</sub>, d<sub>trace</sub>, d<sub>exp</sub></MathExpr>: definitions, proofs, metric tables, and trace rows.</>],
-      ['S - Schema', 'GridToGraph, BFSDepthOrder, AStarMinimumF, HeuristicAdmissibility, EffectiveBranchingFactor, PredictionCorrectness.'],
+      ['A - Artifacts', <><MathExpr>a<sub>i</sub> = (M<sub>i</sub>, G<sub>i</sub>, alg<sub>i</sub>, trace<sub>i</sub>)</MathExpr>: maze, mapped graph, selected algorithm, and execution trace. <MathExpr>M<sub>i</sub>=(R,C,W,s,g)</MathExpr> with rows R, cols C, walls W, start s, goal g.</>],
+      ['D - Evidence', <><MathExpr>d<sub>Φ</sub>, d<sub>BFS</sub>, d<sub>A*</sub>, d<sub>h</sub>, d<sub>b</sub>, d<sub>trace</sub>, d<sub>exp</sub></MathExpr>: definitions, proofs, metric tables, and trace rows. Each d-subscript names a document type used to justify a claim.</>],
+      ['S - Schema', 'Schema families that define the rule being tested: GridToGraph, BFSDepthOrder, AStarMinimumF, HeuristicAdmissibility, EffectiveBranchingFactor, PredictionCorrectness.'],
     ],
   },
   {
@@ -145,11 +145,11 @@ const MANIFESTO_TABS = [
     label: 'Retrieval',
     title: <MathExpr>R : (A × S) → P(D)</MathExpr>,
     body:
-      'For each visual claim, the scanner retrieves only the documents relevant to the active schema dimension. This is the bridge from interface state to formal evidence.',
+      'For each visual claim, the scanner retrieves only the documents relevant to the active schema dimension. This is the bridge from interface state to formal evidence. Here A is the artifact set, S is the schema dimension, D is the evidence document set, and P(D) is the set of possible evidence subsets.',
     items: [
-      ['AStarMinimumF', <>D<sub>rel</sub> contains the frontier <MathExpr>F<sub>t</sub></MathExpr>, candidate scores <MathExpr>g(n), h(n), f(n)</MathExpr>, and the selected node <MathExpr>n*<sub>t</sub></MathExpr>.</>],
-      ['EffectiveBranchingFactor', <>D<sub>rel</sub> contains <MathExpr>N</MathExpr>, <MathExpr>d</MathExpr>, and <MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr>.</>],
-      ['PredictionCorrectness', <>D<sub>rel</sub> contains the learner choice, valid candidate set, and the satisfied or violated rule.</>],
+      ['AStarMinimumF', <>D<sub>rel</sub> contains the frontier <MathExpr>F<sub>t</sub></MathExpr>, candidate scores <MathExpr>g(n), h(n), f(n)</MathExpr>, and the selected node <MathExpr>n*<sub>t</sub></MathExpr>. Here <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t and <MathExpr>n*<sub>t</sub></MathExpr> is the chosen node at step t.</>],
+      ['EffectiveBranchingFactor', <>D<sub>rel</sub> contains <MathExpr>N</MathExpr>, <MathExpr>d</MathExpr>, and <MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr>. Here <MathExpr>N</MathExpr> is the expanded-state count and <MathExpr>d</MathExpr> is solution depth.</>],
+      ['PredictionCorrectness', <>D<sub>rel</sub> contains the learner choice, the valid candidate set, and the satisfied or violated rule. The valid set is the argmin frontier rule for BFS or A*.</>],
     ],
   },
   {
@@ -157,11 +157,11 @@ const MANIFESTO_TABS = [
     label: 'Verification',
     title: <MathExpr>d ⊨ p</MathExpr>,
     body:
-      'The thesis verification constraint accepts a claim p only when some retrieved document d entails it. The page therefore presents formal obligations, not decorative descriptions.',
+      'The thesis verification constraint accepts a claim p only when some retrieved document d entails it. Here p is a claim and d is an evidence document. The page therefore presents formal obligations, not decorative descriptions.',
     items: [
-      ['BFS claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>.</>],
-      ['A* claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>; ties are valid minimizers.</>],
-      ['Learning claim', <>Valid iff the selected prediction belongs to the formal next-node set <MathExpr>N<sub>t</sub></MathExpr>.</>],
+      ['BFS claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>, where <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t and <MathExpr>n*<sub>t</sub></MathExpr> is the selected node.</>],
+      ['A* claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>; ties are valid minimizers. Here <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t.</>],
+      ['Learning claim', <>Valid iff the selected prediction belongs to the formal next-node set <MathExpr>N<sub>t</sub></MathExpr>, the argmin frontier rule at step t.</>],
     ],
   },
 ];
@@ -177,19 +177,19 @@ const FORMAL_CONTRACT = [
     label: 'Perception Mapping',
     expression: <MathExpr>Φ(M) = G<sub>M</sub> = (V<sub>M</sub>, E<sub>M</sub>)</MathExpr>,
     statement:
-      <><MathExpr>V<sub>M</sub></MathExpr> contains every traversable cell. <MathExpr>E<sub>M</sub></MathExpr> contains exactly the orthogonal adjacencies satisfying <MathExpr>|i-k| + |j-l| = 1</MathExpr>.</>,
+      <><MathExpr>V<sub>M</sub></MathExpr> contains every traversable cell. <MathExpr>E<sub>M</sub></MathExpr> contains exactly the orthogonal adjacencies satisfying <MathExpr>|i-k| + |j-l| = 1</MathExpr>, where (i,j) and (k,l) are row/column cell coordinates.</>,
   },
   {
     label: 'Uniform Edge Cost',
     expression: <MathExpr>c((i,j),(k,l)) = 1</MathExpr>,
     statement:
-      'Every legal grid move has unit cost, so path cost equals edge count and BFS shortest-depth reasoning applies.',
+      'Every legal grid move has unit cost, so path cost equals edge count and BFS shortest-depth reasoning applies. Here c is the edge cost between adjacent cells.',
   },
   {
     label: 'Branching Bound',
     expression: <MathExpr>deg(v) ≤ 4, b<sub>max</sub> ≤ 4</MathExpr>,
     statement:
-      'The implemented grid is 4-connected. Boundaries and walls can reduce degree, but no cell has more than four legal successors.',
+      'The implemented grid is 4-connected. deg(v) is the number of legal neighbors of vertex v. Boundaries and walls can reduce degree, but no cell has more than four legal successors.',
   },
 ];
 
@@ -198,25 +198,25 @@ const PROOF_OBLIGATIONS = [
     label: 'P2.1 Mapping Correctness',
     expression: <MathExpr>legal visual move ⇔ edge in G<sub>M</sub></MathExpr>,
     statement:
-      'Every visual movement corresponds to an edge, and every edge corresponds to one legal visual movement.',
+      'Every visual movement corresponds to an edge, and every edge corresponds to one legal visual movement in the mapped graph G_M.',
   },
   {
     label: 'P2.4 BFS Optimality',
     expression: <MathExpr>n*<sub>t</sub> ∈ argmin depth(n)</MathExpr>,
     statement:
-      'Because all edges have cost 1, BFS reaches the goal first at the shortest possible depth.',
+      'Because all edges have cost 1, BFS reaches the goal first at the shortest possible depth. Here n*_t is the selected node at step t.',
   },
   {
     label: 'P2.6/P2.7 Heuristic Validity',
     expression: <MathExpr>h(n) ≤ h<sup>*</sup>(n), h(n) ≤ c(n,m)+h(m)</MathExpr>,
     statement:
-      'Manhattan distance is admissible and consistent on the 4-connected unit grid, so A* preserves optimality.',
+      'Manhattan distance is admissible and consistent on the 4-connected unit grid, so A* preserves optimality. Here h*(n) is the true shortest remaining cost and c(n,m)=1 per move.',
   },
   {
     label: 'P2.9 Trace Soundness',
     expression: <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>,
     statement:
-      'If the selected frontier node minimizes f(n), the recorded expansion is sound with respect to the A* rule.',
+      'If the selected frontier node minimizes f(n)=g(n)+h(n), the recorded expansion is sound with respect to the A* rule. Here F_t is the frontier at step t.',
   },
 ];
 
@@ -412,7 +412,8 @@ function TruthScannerPage({
             <h3>State Space</h3>
             <p>
               A maze artifact <MathExpr>M=(R,C,W,s,g)</MathExpr> becomes the finite{' '}
-              <TruthTerm id="graph-model" {...termProps}>graph model</TruthTerm> <MathExpr>G<sub>M</sub>=(V<sub>M</sub>,E<sub>M</sub>)</MathExpr>.
+              <TruthTerm id="graph-model" {...termProps}>graph model</TruthTerm> <MathExpr>G<sub>M</sub>=(V<sub>M</sub>,E<sub>M</sub>)</MathExpr>,
+              where R and C are the grid rows/columns, W is the wall set, s is the start cell, and g is the goal cell.
               The set <MathExpr>V<sub>M</sub></MathExpr> contains exactly the non-wall cells, and <MathExpr>E<sub>M</sub></MathExpr> contains exactly the
               legal 4-neighbor moves.
             </p>
@@ -420,7 +421,7 @@ function TruthScannerPage({
           <article className="truth-proof-card">
             <h3>Successor Function</h3>
             <p>
-              The successor relation is defined by <MathExpr>|i-k|+|j-l|=1</MathExpr> over traversable cells.
+              The successor relation is defined by <MathExpr>|i-k|+|j-l|=1</MathExpr> over traversable cells (i,j) and (k,l).
               Therefore <MathExpr>deg(v) ≤ 4</MathExpr>, while walls and boundaries lower the actual{' '}
               <TruthTerm id="branching-factor" {...termProps}>branching factor</TruthTerm>.
             </p>
@@ -446,8 +447,10 @@ function TruthScannerPage({
             <h3>Rule</h3>
             <p>
               BFS is the uninformed baseline. At step <MathExpr>t</MathExpr>, with frontier <MathExpr>F<sub>t</sub></MathExpr>, it selects a node
-              in <MathExpr>argmin depth(n)</MathExpr>. Since <MathExpr>depth(n)=</MathExpr><TruthTerm id="g-score" {...termProps}>g(n)</TruthTerm>{' '}
-              under unit edge costs, queue order is shortest-depth order.
+              in <MathExpr>argmin depth(n)</MathExpr>. The frontier <MathExpr>F<sub>t</sub></MathExpr> is the queue of discovered but unexpanded nodes.
+              Since <MathExpr>depth(n)=</MathExpr><TruthTerm id="g-score" {...termProps}>g(n)</TruthTerm>{' '}
+              under unit edge costs, queue order is shortest-depth order. In complexity terms, <MathExpr>|V|</MathExpr> counts non-wall cells and{' '}
+              <MathExpr>|E|</MathExpr> counts legal adjacencies.
             </p>
           </div>
           <div className="truth-equation-card">
@@ -481,7 +484,8 @@ function TruthScannerPage({
               <TruthTerm id="frontier" {...termProps}>frontier</TruthTerm> node satisfying the minimum{' '}
               <TruthTerm id="f-score" {...termProps}>f(n)</TruthTerm> rule, where f(n) combines the paid cost{' '}
               <TruthTerm id="g-score" {...termProps}>g(n)</TruthTerm> and the remaining estimate{' '}
-              <TruthTerm id="h-score" {...termProps}>h(n)</TruthTerm>.
+              <TruthTerm id="h-score" {...termProps}>h(n)</TruthTerm>. Here the frontier is the open set of discovered, unexpanded nodes;{' '}
+              g(n) is the cost from start s and h(n) estimates the remaining cost to goal g.
             </p>
           </div>
           <div className="truth-equation-card truth-equation-card-large">
@@ -511,7 +515,8 @@ function TruthScannerPage({
           <article className="truth-proof-card">
             <h3>Soundness Criterion</h3>
             <p>
-              For an A* step <MathExpr>t</MathExpr>, let <MathExpr>F<sub>t</sub></MathExpr> be the frontier before expansion. The trace is
+              For an A* step <MathExpr>t</MathExpr>, let <MathExpr>F<sub>t</sub></MathExpr> be the frontier before expansion (the open set).
+              The trace is
               sound when the recorded node <MathExpr>n*<sub>t</sub></MathExpr> satisfies:
             </p>
             <code className="truth-inline-equation"><MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr></code>
@@ -562,6 +567,9 @@ function TruthScannerPage({
               runs:
             </p>
             <code><MathExpr>b<sub>graph</sub> = <MathFraction numerator="2|E|" denominator="|V|" /></MathExpr></code>
+            <p>
+              Here <MathExpr>|V|</MathExpr> is the count of non-wall cells and <MathExpr>|E|</MathExpr> is the count of legal adjacencies.
+            </p>
           </article>
           <article className="truth-algorithm-card">
             <h3><MathExpr>b<sub>observed</sub></MathExpr></h3>
@@ -629,7 +637,7 @@ function TruthScannerPage({
             <h3>Verify</h3>
             <p>
               Feedback is scored against the rule: minimum g(n) for BFS, or minimum f(n) with h(n)
-              tie-break for A*. That makes the UI an assessment of algorithmic reasoning.
+              tie-break for A*, where f(n)=g(n)+h(n). That makes the UI an assessment of algorithmic reasoning.
             </p>
           </div>
         </div>

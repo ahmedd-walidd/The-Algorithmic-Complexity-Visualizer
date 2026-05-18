@@ -3376,36 +3376,6 @@
   overflow-wrap: anywhere;
 }
 
-.heuristic-audit-export,
-.heuristic-audit-nav {
-  min-width: 0;
-  padding: 0.42rem 0.5rem;
-  border: 2px solid rgba(74, 144, 217, 0.48);
-  border-bottom-width: 3px;
-  border-radius: 8px;
-  background: rgba(9, 25, 49, 0.76);
-  color: #dbeafe;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.68rem;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.heuristic-audit-export:hover,
-.heuristic-audit-export:focus-visible,
-.heuristic-audit-nav:hover,
-.heuristic-audit-nav:focus-visible {
-  border-color: #facc15;
-  color: #ffffff;
-  outline: none;
-}
-
-.heuristic-audit-export:disabled,
-.heuristic-audit-nav:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
-}
-
 .heuristic-audit-timeline-note {
   display: grid;
   gap: 0.18rem;

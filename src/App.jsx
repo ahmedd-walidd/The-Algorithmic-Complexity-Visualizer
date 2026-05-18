@@ -207,6 +207,7 @@ function App() {
 
   const isPausedRef = useRef(false);
   const isQuizModeRef = useRef(false);
+  const isRaceModeRef = useRef(false);
   const quizStateRef = useRef(quizState);
   const scoreStateRef = useRef(INITIAL_SCORE_STATE);
   const quizProgressRef = useRef({
@@ -217,6 +218,7 @@ function App() {
     correctKey: null,
   });
   const formalTraceRef = useRef(formalTrace);
+  const pausedComparisonRef = useRef(null);
   const runStateRef = useRef({
     phase: 'idle',
     visited: [],
@@ -231,6 +233,7 @@ function App() {
     pauseInterval: DEFAULT_SETTINGS.quizPromptInterval,
     stepFunc: null,
   });
+  const raceRunStateRef = useRef({ bfs: null, astar: null });
 
   const applyObstacleState = useCallback((row, col, isWall) => {
     if (row === gridEndpoints.start.row && col === gridEndpoints.start.col) return;
@@ -285,6 +288,10 @@ function App() {
   }, [isQuizMode]);
 
   useEffect(() => {
+    isRaceModeRef.current = isRaceMode;
+  }, [isRaceMode]);
+
+  useEffect(() => {
     quizStateRef.current = quizState;
   }, [quizState]);
 
@@ -297,6 +304,10 @@ function App() {
   }, [formalTrace]);
 
   useEffect(() => {
+    pausedComparisonRef.current = pausedComparison;
+  }, [pausedComparison]);
+
+  useEffect(() => {
     const onPopState = () => {
       const path = window.location.pathname;
       setCurrentRoute(path === '/visualizer' || path === '/truth-scanner' ? path : '/');
@@ -307,6 +318,68 @@ function App() {
       window.removeEventListener('popstate', onPopState);
     };
   }, []);
+
+  useEffect(() => {
+    if (currentRoute !== '/visualizer') return;
+
+    const syncRunDom = () => {
+      if (isRaceModeRef.current) {
+        const raceState = raceRunStateRef.current || {};
+        const bfsRun = raceState.bfs;
+        const astarRun = raceState.astar;
+
+        if (bfsRun && (bfsRun.visited?.length || bfsRun.path?.length)) {
+          redrawRunTimeline(bfsRun);
+        }
+        if (astarRun && (astarRun.visited?.length || astarRun.path?.length)) {
+          redrawRunTimeline(astarRun);
+        }
+        return;
+      }
+
+      const run = runStateRef.current;
+      const quiz = quizStateRef.current;
+      const quizProgress = quizProgressRef.current;
+      const prefix = run?.prefix || '';
+
+      if (quiz?.active && quizProgress?.selectedKeys?.size) {
+        const correctKey = quizProgress.correctKey;
+        quizProgress.selectedKeys.forEach((key) => {
+          const [row, col] = key.split('-').map(Number);
+          if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+          const el = document.getElementById(`${prefix}node-${row}-${col}`);
+          if (!el) return;
+          if (key === correctKey) {
+            el.classList.add('node-prediction-correct');
+          } else {
+            el.classList.add('node-prediction-wrong');
+          }
+        });
+      }
+
+      if (run?.visited?.length || run?.path?.length) {
+        redrawRunTimeline(run);
+      }
+
+      if (quiz?.active) {
+        (quiz.candidates || []).forEach((candidate) => {
+          const el = document.getElementById(`${prefix}node-${candidate.row}-${candidate.col}`);
+          if (!el) return;
+          if (el.classList.contains('node-visited') || el.classList.contains('node-wall')) return;
+          el.classList.add('node-prediction-candidate');
+        });
+      }
+
+      const pausedComparison = pausedComparisonRef.current;
+      if (isPausedRef.current && pausedComparison) {
+        applyFrontierHoverHighlight(pausedComparison.frontierNodes || []);
+        applyNextChoiceHighlight(pausedComparison.candidateNodes || []);
+      }
+    };
+
+    const frameId = window.requestAnimationFrame(syncRunDom);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [currentRoute]);
 
   const clearRewindHoverTarget = useCallback(() => {
     document.querySelectorAll('.node-rewind-target').forEach((el) => {
@@ -364,6 +437,7 @@ function App() {
       pauseInterval: quizPromptInterval,
       stepFunc: null,
     };
+    raceRunStateRef.current = { bfs: null, astar: null };
   }, [quizPromptInterval]);
 
   const resetVisualizationState = useCallback(({ resetScore = true } = {}) => {
@@ -1262,63 +1336,94 @@ function App() {
     step();
   }, [quizPromptInterval]);
 
-  const animateAlgorithmRace = useCallback((visited, path, prefix, ms, onDone, onPathStart, onStep) => {
-    if (visited.length === 0) {
-      onDone?.();
-      return;
-    }
+  const animateAlgorithmRace = useCallback(
+    (visited, path, prefix, ms, onDone, onPathStart, onStep, runState) => {
+      if (runState) {
+        runState.phase = visited.length > 0 ? 'visited' : 'done';
+        runState.visited = visited;
+        runState.path = path;
+        runState.prefix = prefix;
+        runState.visitedIndex = 0;
+        runState.pathIndex = 0;
+      }
 
-    let visitedIndex = 0;
-
-    const animateRacePath = () => {
-      if (path.length === 0) {
+      if (visited.length === 0) {
         onDone?.();
         return;
       }
-      onPathStart?.();
 
-      let pathIndex = 0;
-      const pathStep = () => {
-        if (pathIndex >= path.length) {
+      let visitedIndex = 0;
+
+      const animateRacePath = () => {
+        if (path.length === 0) {
+          if (runState) {
+            runState.phase = 'done';
+            runState.pathIndex = 0;
+          }
           onDone?.();
           return;
         }
+        if (runState) {
+          runState.phase = 'path';
+          runState.pathIndex = 0;
+        }
+        onPathStart?.();
 
-        const n = path[pathIndex];
-        const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
-        if (el && !n.isStart && !n.isEnd) {
-          el.classList.remove('node-visited');
-          el.classList.add('node-shortest-path');
+        let pathIndex = 0;
+        const pathStep = () => {
+          if (pathIndex >= path.length) {
+            if (runState) {
+              runState.phase = 'done';
+              runState.pathIndex = path.length;
+            }
+            onDone?.();
+            return;
+          }
+
+          const n = path[pathIndex];
+          const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
+          if (el && !n.isStart && !n.isEnd) {
+            el.classList.remove('node-visited');
+            el.classList.add('node-shortest-path');
+          }
+
+          pathIndex += 1;
+          if (runState) {
+            runState.pathIndex = pathIndex;
+          }
+          const t = setTimeout(pathStep, ms * 3);
+          timeoutsRef.current.push(t);
+        };
+
+        pathStep();
+      };
+
+      const visitStep = () => {
+        if (visitedIndex >= visited.length) {
+          animateRacePath();
+          return;
         }
 
-        pathIndex += 1;
-        const t = setTimeout(pathStep, ms * 3);
+        const n = visited[visitedIndex];
+        const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
+        if (el && !n.isStart && !n.isEnd) {
+          el.classList.add('node-visited');
+        }
+
+        onStep?.(visitedIndex);
+        visitedIndex += 1;
+        if (runState) {
+          runState.phase = 'visited';
+          runState.visitedIndex = visitedIndex;
+        }
+        const t = setTimeout(visitStep, ms);
         timeoutsRef.current.push(t);
       };
 
-      pathStep();
-    };
-
-    const visitStep = () => {
-      if (visitedIndex >= visited.length) {
-        animateRacePath();
-        return;
-      }
-
-      const n = visited[visitedIndex];
-      const el = document.getElementById(`${prefix}node-${n.row}-${n.col}`);
-      if (el && !n.isStart && !n.isEnd) {
-        el.classList.add('node-visited');
-      }
-
-      onStep?.(visitedIndex);
-      visitedIndex += 1;
-      const t = setTimeout(visitStep, ms);
-      timeoutsRef.current.push(t);
-    };
-
-    visitStep();
-  }, []);
+      visitStep();
+    },
+    []
+  );
 
   // Visualize (single or race)
   const handleVisualize = useCallback(() => {
@@ -1433,8 +1538,36 @@ function App() {
       setHeuristicAuditLog(astarAudit);
       setActiveHeuristicAuditIndex(astarAudit.length > 0 ? 0 : -1);
 
+      raceRunStateRef.current = {
+        bfs: {
+          phase: bfsVisited.length > 0 ? 'visited' : 'done',
+          visited: bfsVisited,
+          path: bfsPathNodes,
+          prefix: 'bfs-',
+          visitedIndex: 0,
+          pathIndex: 0,
+        },
+        astar: {
+          phase: astarVisited.length > 0 ? 'visited' : 'done',
+          visited: astarVisited,
+          path: astarPathNodes,
+          prefix: 'astar-',
+          visitedIndex: 0,
+          pathIndex: 0,
+        },
+      };
+
       // race mode: independent animation loops for both sides
-      animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone, onPathStart);
+      animateAlgorithmRace(
+        bfsVisited,
+        bfsPathNodes,
+        'bfs-',
+        ms,
+        onDone,
+        onPathStart,
+        undefined,
+        raceRunStateRef.current.bfs
+      );
       animateAlgorithmRace(
         astarVisited,
         astarPathNodes,
@@ -1442,7 +1575,8 @@ function App() {
         ms,
         onDone,
         onPathStart,
-        (stepIndex) => setActiveHeuristicAuditIndex(stepIndex)
+        (stepIndex) => setActiveHeuristicAuditIndex(stepIndex),
+        raceRunStateRef.current.astar
       );
     } else {
       // Single algorithm.
@@ -1601,6 +1735,8 @@ function App() {
 
   useEffect(() => {
     clearPreviewPathHighlight();
+    if (currentRoute !== '/visualizer') return undefined;
+
     const backwardPreview =
       hoveredBackwardPreviewPath.length > 0
         ? hoveredBackwardPreviewPath
@@ -1638,6 +1774,7 @@ function App() {
     activeHoverComparison,
     currentTrace,
     gridEndpoints,
+    currentRoute,
   ]);
 
   const { averageTryAccuracy, averageTriesPerQuestion } = getScoreAverages(scoreState);

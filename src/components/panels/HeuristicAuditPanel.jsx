@@ -28,24 +28,6 @@ function HeuristicAuditPanel({
     });
   }, [activeStep]);
 
-  const handleExportJson = () => {
-    if (steps.length === 0) return;
-
-    const blob = new Blob([JSON.stringify(steps, null, 2)], {
-      type: 'application/json;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-    link.href = url;
-    link.download = `astar-heuristic-audit-${timestamp}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <section className="heuristic-audit-panel formal-trace-panel" aria-live="polite">
       <div className="heuristic-audit-header">
@@ -53,14 +35,6 @@ function HeuristicAuditPanel({
           <h2>A* Heuristic Audit</h2>
           <code><MathExpr>f(n) = g(n) + h(n)</MathExpr></code>
         </div>
-        <button
-          type="button"
-          className="heuristic-audit-export"
-          onClick={handleExportJson}
-          disabled={steps.length === 0}
-        >
-          Export A* Audit JSON
-        </button>
       </div>
 
       {!isAvailable && (
