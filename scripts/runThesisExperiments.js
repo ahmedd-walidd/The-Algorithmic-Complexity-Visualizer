@@ -396,7 +396,7 @@ function renderMarkdown(results) {
   lines.push('## Algorithm Efficiency And Branching');
   lines.push('');
   lines.push(
-    '| Size | Density | Algorithm | Trials | Visited nodes | Path depth | b_graph | b_observed | b_effective | Max frontier | Prediction pauses | Compute ms |'
+    '| Size | Density | Algorithm | Trials | Visited nodes | Path depth | b<sub>graph</sub> | b<sub>observed</sub> | b<sub>effective</sub> | Max frontier | Prediction pauses | Compute ms |'
   );
   lines.push(
     '|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|'
@@ -447,7 +447,7 @@ function renderMarkdown(results) {
     '- A* behaves like informed search. Its formal rule is v_i = argmin f(u)=g(u)+h(u). In this implementation h is the exact remaining grid distance, so A* expands far fewer states while preserving the same shortest path depth.'
   );
   lines.push(
-    '- The b_graph value estimates average graph branching from the grid topology, while b_observed estimates the legal successor branching encountered during expansion. b_effective estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.'
+    '- The b<sub>graph</sub> value estimates average graph branching from the grid topology, while b<sub>observed</sub> estimates the legal successor branching encountered during expansion. b<sub>effective</sub> estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.'
   );
   lines.push(
     '- Prediction-pause opportunities scale with visited nodes: BFS usually creates more prompts because it expands more states, while A* creates fewer but more targeted prompts. To evaluate learning, compare participant accuracy, attempts, response time, and pre/post test scores with Pause-Prediction enabled versus disabled.'

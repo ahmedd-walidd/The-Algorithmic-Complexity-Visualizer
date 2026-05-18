@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import TopNavigation from './TopNavigation';
+import MathExpr, { MathFraction } from '../common/MathExpr/MathExpr';
 
 const CONCEPTS = [
   {
     id: 'graph-model',
     label: 'Graph Model',
-    formula: 'G = (V, E)',
+    formula: <MathExpr>G = (V, E)</MathExpr>,
     plain:
       'A maze is treated as a finite graph: every traversable cell is a vertex and every legal movement between adjacent cells is an edge.',
     formal:
@@ -18,23 +20,23 @@ const CONCEPTS = [
     plain:
       'Branching factor measures how many choices a search algorithm typically has after expanding a node.',
     formal:
-      'For a grid graph, b_graph = 2|E| / |V| is the mean degree of the searchable graph. For a trace, b_observed = legal successor audits / expanded nodes.',
+      <>For a grid graph, <MathExpr>b<sub>graph</sub> = <MathFraction numerator="2|E|" denominator="|V|" /></MathExpr> is the mean degree of the searchable graph. For a trace, <MathExpr>b<sub>observed</sub></MathExpr> is legal successor audits over expanded nodes.</>,
     visual: '        up\n         |\nleft -- node -- right\n         |\n       down',
   },
   {
     id: 'effective-branching',
     label: 'Effective Branching',
-    formula: 'N = 1 + b* + (b*)^2 + ... + (b*)^d',
+    formula: <MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr>,
     plain:
       'Effective branching asks: what branching factor would explain the number of states actually expanded by this run?',
     formal:
       'Given N expanded states and solution depth d, solve the expansion series for b*. A lower b* means the algorithm behaved as if the search tree were narrower.',
-    visual: 'depth 0: 1\n depth 1: b*\n depth 2: (b*)^2\n depth d: (b*)^d',
+    visual: 'depth 0: 1\n depth 1: b*\n depth 2: (b*)²\n depth d: (b*)ᵈ',
   },
   {
     id: 'g-score',
     label: 'g(n)',
-    formula: 'g(n) = cost from start to n',
+    formula: <MathExpr>g(n) = cost(s,n)</MathExpr>,
     plain:
       'g(n) is the known path cost already paid to reach a node.',
     formal:
@@ -44,17 +46,17 @@ const CONCEPTS = [
   {
     id: 'h-score',
     label: 'h(n)',
-    formula: 'h(n) = estimated cost from n to goal',
+    formula: <MathExpr>h(n) = estimated cost(n,g)</MathExpr>,
     plain:
       'h(n) estimates how far a node is from the goal before the algorithm has actually traveled there.',
     formal:
       'A heuristic guides search by estimating remaining cost. If h never overestimates the true shortest remaining cost, it is admissible.',
-    visual: 'n ? ? ? G\nestimated remaining distance = h(n)',
+    visual: 'n -> ? -> ? -> G\nestimated remaining distance = h(n)',
   },
   {
     id: 'f-score',
     label: 'f(n)',
-    formula: 'f(n) = g(n) + h(n)',
+    formula: <MathExpr>f(n) = g(n) + h(n)</MathExpr>,
     plain:
       'f(n) is A*’s priority score: paid cost plus estimated remaining cost.',
     formal:
@@ -74,37 +76,37 @@ const CONCEPTS = [
   {
     id: 'admissible',
     label: 'Admissible Heuristic',
-    formula: 'h(n) <= h*(n)',
+    formula: <MathExpr>h(n) ≤ h<sup>*</sup>(n)</MathExpr>,
     plain:
-      'An admissible heuristic is optimistic: it never claims the goal is farther cheaper than it truly is.',
+      'An admissible heuristic is optimistic: it never claims the goal is cheaper than it truly is.',
     formal:
-      'If h(n) never overestimates the optimal remaining cost h*(n), A* is guaranteed to preserve optimality on graphs with non-negative edge costs.',
-    visual: 'estimated <= true remaining cost\noptimism preserves optimal paths',
+      <>If <MathExpr>h(n)</MathExpr> never overestimates the optimal remaining cost <MathExpr>h<sup>*</sup>(n)</MathExpr>, A* is guaranteed to preserve optimality on graphs with non-negative edge costs.</>,
+    visual: 'estimated ≤ true remaining cost\noptimism preserves optimal paths',
   },
   {
     id: 'consistent',
     label: 'Consistent Heuristic',
-    formula: 'h(n) <= c(n,m) + h(m)',
+    formula: <MathExpr>h(n) ≤ c(n,m) + h(m)</MathExpr>,
     plain:
       'Consistency means the heuristic obeys a triangle inequality across every edge.',
     formal:
-      'For each edge from n to m with cost c(n,m), consistency requires h(n) <= c(n,m)+h(m). This keeps f-values non-decreasing along optimal paths.',
+      <>For each edge from n to m with cost c(n,m), consistency requires <MathExpr>h(n) ≤ c(n,m)+h(m)</MathExpr>. This keeps f-values non-decreasing along optimal paths.</>,
     visual: 'n --cost--> m --estimate--> G\nh(n) cannot beat that route',
   },
   {
     id: 'relaxation',
     label: 'Relaxation',
-    formula: 'if g_new < g_old, update parent',
+    formula: <MathExpr>if g<sub>new</sub> &lt; g<sub>old</sub>, update parent</MathExpr>,
     plain:
       'Relaxation is the check that decides whether a newly found route to a neighbor is better.',
     formal:
-      'For neighbor m of node n, compute g_new = g(n)+c(n,m). If g_new improves the best known g(m), update g(m), f(m), and previousNode(m).',
+      <>For neighbor m of node n, compute <MathExpr>g<sub>new</sub> = g(n)+c(n,m)</MathExpr>. If <MathExpr>g<sub>new</sub></MathExpr> improves the best known g(m), update g(m), f(m), and previousNode(m).</>,
     visual: 'old route to m: cost 9\nnew route via n: cost 6\nupdate m',
   },
   {
     id: 'pause-prediction',
     label: 'Pause-Prediction',
-    formula: 'learner predicts argmin frontier rule',
+    formula: <MathExpr>learner predicts argmin frontier rule</MathExpr>,
     plain:
       'Pause-Prediction turns the visualizer into an active-recall assessment instead of passive animation.',
     formal:
@@ -125,6 +127,114 @@ const CONCEPTS = [
 
 const conceptById = Object.fromEntries(CONCEPTS.map((concept) => [concept.id, concept]));
 
+const MANIFESTO_TABS = [
+  {
+    id: 'knowledge-space',
+    label: 'Knowledge Space',
+    title: <MathExpr>K = (A, D, S)</MathExpr>,
+    body:
+      'The thesis frames the system as a constrained knowledge space. A claim is not accepted because it sounds plausible; it must be supported by an artifact, evidence document, and schema dimension.',
+    items: [
+      ['A - Artifacts', <><MathExpr>a<sub>i</sub> = (M<sub>i</sub>, G<sub>i</sub>, alg<sub>i</sub>, trace<sub>i</sub>)</MathExpr>: maze, mapped graph, selected algorithm, and execution trace.</>],
+      ['D - Evidence', <><MathExpr>d<sub>Φ</sub>, d<sub>BFS</sub>, d<sub>A*</sub>, d<sub>h</sub>, d<sub>b</sub>, d<sub>trace</sub>, d<sub>exp</sub></MathExpr>: definitions, proofs, metric tables, and trace rows.</>],
+      ['S - Schema', 'GridToGraph, BFSDepthOrder, AStarMinimumF, HeuristicAdmissibility, EffectiveBranchingFactor, PredictionCorrectness.'],
+    ],
+  },
+  {
+    id: 'retrieval',
+    label: 'Retrieval',
+    title: <MathExpr>R : (A × S) → P(D)</MathExpr>,
+    body:
+      'For each visual claim, the scanner retrieves only the documents relevant to the active schema dimension. This is the bridge from interface state to formal evidence.',
+    items: [
+      ['AStarMinimumF', <>D<sub>rel</sub> contains the frontier <MathExpr>F<sub>t</sub></MathExpr>, candidate scores <MathExpr>g(n), h(n), f(n)</MathExpr>, and the selected node <MathExpr>n*<sub>t</sub></MathExpr>.</>],
+      ['EffectiveBranchingFactor', <>D<sub>rel</sub> contains <MathExpr>N</MathExpr>, <MathExpr>d</MathExpr>, and <MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr>.</>],
+      ['PredictionCorrectness', <>D<sub>rel</sub> contains the learner choice, valid candidate set, and the satisfied or violated rule.</>],
+    ],
+  },
+  {
+    id: 'verification',
+    label: 'Verification',
+    title: <MathExpr>d ⊨ p</MathExpr>,
+    body:
+      'The thesis verification constraint accepts a claim p only when some retrieved document d entails it. The page therefore presents formal obligations, not decorative descriptions.',
+    items: [
+      ['BFS claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>.</>],
+      ['A* claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>; ties are valid minimizers.</>],
+      ['Learning claim', <>Valid iff the selected prediction belongs to the formal next-node set <MathExpr>N<sub>t</sub></MathExpr>.</>],
+    ],
+  },
+];
+
+const FORMAL_CONTRACT = [
+  {
+    label: 'Maze Artifact',
+    expression: <MathExpr>M = (R, C, W, s, g)</MathExpr>,
+    statement:
+      'R and C define the finite grid; W is the wall set; s and g are the start and goal cells. A cell is traversable exactly when it is not in W.',
+  },
+  {
+    label: 'Perception Mapping',
+    expression: <MathExpr>Φ(M) = G<sub>M</sub> = (V<sub>M</sub>, E<sub>M</sub>)</MathExpr>,
+    statement:
+      <><MathExpr>V<sub>M</sub></MathExpr> contains every traversable cell. <MathExpr>E<sub>M</sub></MathExpr> contains exactly the orthogonal adjacencies satisfying <MathExpr>|i-k| + |j-l| = 1</MathExpr>.</>,
+  },
+  {
+    label: 'Uniform Edge Cost',
+    expression: <MathExpr>c((i,j),(k,l)) = 1</MathExpr>,
+    statement:
+      'Every legal grid move has unit cost, so path cost equals edge count and BFS shortest-depth reasoning applies.',
+  },
+  {
+    label: 'Branching Bound',
+    expression: <MathExpr>deg(v) ≤ 4, b<sub>max</sub> ≤ 4</MathExpr>,
+    statement:
+      'The implemented grid is 4-connected. Boundaries and walls can reduce degree, but no cell has more than four legal successors.',
+  },
+];
+
+const PROOF_OBLIGATIONS = [
+  {
+    label: 'P2.1 Mapping Correctness',
+    expression: <MathExpr>legal visual move ⇔ edge in G<sub>M</sub></MathExpr>,
+    statement:
+      'Every visual movement corresponds to an edge, and every edge corresponds to one legal visual movement.',
+  },
+  {
+    label: 'P2.4 BFS Optimality',
+    expression: <MathExpr>n*<sub>t</sub> ∈ argmin depth(n)</MathExpr>,
+    statement:
+      'Because all edges have cost 1, BFS reaches the goal first at the shortest possible depth.',
+  },
+  {
+    label: 'P2.6/P2.7 Heuristic Validity',
+    expression: <MathExpr>h(n) ≤ h<sup>*</sup>(n), h(n) ≤ c(n,m)+h(m)</MathExpr>,
+    statement:
+      'Manhattan distance is admissible and consistent on the 4-connected unit grid, so A* preserves optimality.',
+  },
+  {
+    label: 'P2.9 Trace Soundness',
+    expression: <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>,
+    statement:
+      'If the selected frontier node minimizes f(n), the recorded expansion is sound with respect to the A* rule.',
+  },
+];
+
+const AUDIT_TRACE_ROWS = [
+  { step: 2, node: '(5, 3)', g: 1, h: 19, f: 20, selected: 'Yes' },
+  { step: 2, node: '(4, 2)', g: 1, h: 21, f: 22, selected: 'No' },
+  { step: 2, node: '(6, 2)', g: 1, h: 21, f: 22, selected: 'No' },
+  { step: 3, node: '(5, 4)', g: 2, h: 18, f: 20, selected: 'Yes' },
+  { step: 3, node: '(4, 3)', g: 2, h: 20, f: 22, selected: 'No' },
+];
+
+const VALIDITY_METRICS = [
+  ['Expansion reduction', 'A* reduced expanded states versus BFS by 83.2% to 96.6% across tested conditions.'],
+  ['Trace validation', 'For each audited A* step, the selected node had minimum frontier f(n)=g(n)+h(n).'],
+  ['Explanation support', '1,786 of 1,920 audited statements were supported by retrieved evidence: 93.02%.'],
+  ['Learning limitation', 'Prediction logs measure accuracy, attempts, and response time; they do not by themselves prove long-term learning gain.'],
+];
+
 function TruthTerm({ id, children, onOpen }) {
   return (
     <button
@@ -138,9 +248,38 @@ function TruthTerm({ id, children, onOpen }) {
   );
 }
 
-function TruthScannerPage({ onNavigate }) {
+function TruthScannerPage({
+  hasRunSummary,
+  onNavigate,
+  onOpenFormalAnalysis,
+  onReturnToFormalAnalysis,
+  showReturnToAnalysis = false,
+  initialConceptId,
+  onOpenLegend,
+  onOpenSettings,
+  isLegendOpen,
+  isSettingsOpen,
+  isQuizMode,
+  scoreState,
+  scorePopup,
+  averageTryAccuracy,
+  averageTriesPerQuestion,
+}) {
   const [activeConceptId, setActiveConceptId] = useState('f-score');
+  const [activeManifestoId, setActiveManifestoId] = useState('knowledge-space');
   const activeConcept = conceptById[activeConceptId] || CONCEPTS[0];
+  const activeManifesto =
+    MANIFESTO_TABS.find((item) => item.id === activeManifestoId) || MANIFESTO_TABS[0];
+
+  useEffect(() => {
+    if (!initialConceptId || !conceptById[initialConceptId]) return;
+    const timeoutId = window.setTimeout(() => {
+      setActiveConceptId(initialConceptId);
+      document.getElementById('truth-concepts')?.scrollIntoView({ behavior: 'smooth' });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [initialConceptId]);
 
   const openConcept = (id) => {
     setActiveConceptId(id);
@@ -153,18 +292,39 @@ function TruthScannerPage({ onNavigate }) {
 
   return (
     <main className="truth-page">
+      <TopNavigation
+        currentRoute="/truth-scanner"
+        hasRunSummary={hasRunSummary}
+        onNavigate={onNavigate}
+        onOpenFormalAnalysis={onOpenFormalAnalysis}
+        onOpenLegend={onOpenLegend}
+        onOpenSettings={onOpenSettings}
+        isLegendOpen={isLegendOpen}
+        isSettingsOpen={isSettingsOpen}
+        isQuizMode={isQuizMode}
+        scoreState={scoreState}
+        scorePopup={scorePopup}
+        averageTryAccuracy={averageTryAccuracy}
+        averageTriesPerQuestion={averageTriesPerQuestion}
+      />
+
       <section className="truth-hero">
         <div>
-          <span className="landing-badge">Mathematical Concept Layer</span>
-          <h1>Truth Scanner for Search Algorithms</h1>
+          <span className="landing-badge">Graph Search Auditor</span>
+          <h1>Truth Scanner Formal Audit</h1>
           <p>
-            This page is a rigorous conceptual audit. It explains why the visualizer is a
-            laboratory for reasoning about <TruthTerm id="graph-model" {...termProps}>graphs</TruthTerm>,{' '}
-            <TruthTerm id="branching-factor" {...termProps}>branching factor</TruthTerm>,{' '}
-            <TruthTerm id="f-score" {...termProps}>f(n)=g(n)+h(n)</TruthTerm>, and heuristic efficiency.
+            This page instantiates the thesis formalism: a maze artifact is mapped by <MathExpr>Φ</MathExpr>
+            into a graph <MathExpr>G=(V,E)</MathExpr>, every algorithmic claim is grounded in <MathExpr>K=(A,D,S)</MathExpr>, and
+            expansion decisions are checked against BFS depth order or A*{' '}
+            <TruthTerm id="f-score" {...termProps}>f(n)=g(n)+h(n)</TruthTerm> minimization.
           </p>
         </div>
         <div className="truth-actions">
+          {showReturnToAnalysis && onReturnToFormalAnalysis && (
+            <button type="button" className="truth-secondary-btn" onClick={onReturnToFormalAnalysis}>
+              Back To Formal Results
+            </button>
+          )}
           <button type="button" className="truth-secondary-btn" onClick={() => onNavigate('/visualizer')}>
             Back To Visualizer Lab
           </button>
@@ -174,34 +334,103 @@ function TruthScannerPage({ onNavigate }) {
         </div>
       </section>
 
+      <section className="truth-section truth-section-accent">
+        <div className="truth-section-heading">
+          <span>Formal Contract</span>
+          <h2>Definitions From The Thesis</h2>
+        </div>
+        <div className="truth-axiom-grid">
+          {FORMAL_CONTRACT.map((item) => (
+            <article key={item.label} className="truth-axiom-card">
+              <span>{item.label}</span>
+              <code>{item.expression}</code>
+              <p>{item.statement}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="truth-section">
+        <div className="truth-section-heading">
+          <span>Proof Obligations</span>
+          <h2>What The Scanner Must Prove</h2>
+        </div>
+        <div className="truth-axiom-grid">
+          {PROOF_OBLIGATIONS.map((item) => (
+            <article key={item.label} className="truth-axiom-card truth-axiom-card-proof">
+              <span>{item.label}</span>
+              <code>{item.expression}</code>
+              <p>{item.statement}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="truth-section truth-section-accent">
+        <div className="truth-section-heading">
+          <span>Schema-Guided Grounding</span>
+          <h2>Why The Visualizer Counts As Evidence</h2>
+        </div>
+        <div className="truth-manifesto-shell">
+          <div className="truth-manifesto-tabs" role="tablist" aria-label="Knowledge manifesto">
+            {MANIFESTO_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeManifesto.id === tab.id}
+                className={activeManifesto.id === tab.id ? 'active' : ''}
+                onClick={() => setActiveManifestoId(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <article className="truth-manifesto-panel" role="tabpanel">
+            <span>{activeManifesto.label}</span>
+            <h3>{activeManifesto.title}</h3>
+            <p>{activeManifesto.body}</p>
+            <div className="truth-manifesto-list">
+              {activeManifesto.items.map(([label, value]) => (
+                <div key={label} className="truth-manifesto-item">
+                  <strong>{label}</strong>
+                  <p>{value}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section className="truth-section">
         <div className="truth-section-heading">
           <span>Formal Object</span>
-          <h2>The Maze Is A Graph, Not A Toy</h2>
+          <h2>The Maze Is A Mapped Graph Instance</h2>
         </div>
         <div className="truth-formal-grid">
           <article className="truth-proof-card">
             <h3>State Space</h3>
             <p>
-              A pathfinding maze becomes a finite <TruthTerm id="graph-model" {...termProps}>graph model</TruthTerm>{' '}
-              G=(V,E). The set V contains all non-wall cells. The set E contains all legal
-              orthogonal moves. Search is therefore a sequence of graph expansions, not a visual
-              animation over colored squares.
+              A maze artifact <MathExpr>M=(R,C,W,s,g)</MathExpr> becomes the finite{' '}
+              <TruthTerm id="graph-model" {...termProps}>graph model</TruthTerm> <MathExpr>G<sub>M</sub>=(V<sub>M</sub>,E<sub>M</sub>)</MathExpr>.
+              The set <MathExpr>V<sub>M</sub></MathExpr> contains exactly the non-wall cells, and <MathExpr>E<sub>M</sub></MathExpr> contains exactly the
+              legal 4-neighbor moves.
             </p>
           </article>
           <article className="truth-proof-card">
             <h3>Successor Function</h3>
             <p>
-              Every expansion applies a successor function to a current node. In a 4-neighbor grid,
-              at most four outgoing moves exist, but walls and boundaries lower the actual{' '}
+              The successor relation is defined by <MathExpr>|i-k|+|j-l|=1</MathExpr> over traversable cells.
+              Therefore <MathExpr>deg(v) ≤ 4</MathExpr>, while walls and boundaries lower the actual{' '}
               <TruthTerm id="branching-factor" {...termProps}>branching factor</TruthTerm>.
             </p>
           </article>
           <article className="truth-proof-card">
             <h3>Measured Evidence</h3>
             <p>
-              The visualizer records frontier snapshots, chosen nodes, score equations, and neighbor
-              decisions. Those records are the audit documents that expose the algorithmic box.
+              The trace logs frontier snapshots, selected nodes, equations, and neighbor
+              decisions. These are D evidence documents, so a UI claim is valid only when
+              the retrieved trace entails it.
             </p>
           </article>
         </div>
@@ -216,22 +445,24 @@ function TruthScannerPage({ onNavigate }) {
           <div className="truth-proof-card">
             <h3>Rule</h3>
             <p>
-              BFS expands nodes in non-decreasing <TruthTerm id="g-score" {...termProps}>g(n)</TruthTerm>. Because each edge
-              has unit cost, queue order is depth order.
+              BFS is the uninformed baseline. At step <MathExpr>t</MathExpr>, with frontier <MathExpr>F<sub>t</sub></MathExpr>, it selects a node
+              in <MathExpr>argmin depth(n)</MathExpr>. Since <MathExpr>depth(n)=</MathExpr><TruthTerm id="g-score" {...termProps}>g(n)</TruthTerm>{' '}
+              under unit edge costs, queue order is shortest-depth order.
             </p>
           </div>
           <div className="truth-equation-card">
-            <code>h(n)=0</code>
-            <code>f(n)=g(n)</code>
-            <code>Time: O(|V|+|E|)</code>
-            <code>Space: O(|V|)</code>
+            <code><MathExpr>n*<sub>t</sub> ∈ argmin depth(n)</MathExpr></code>
+            <code><MathExpr>h(n)=0</MathExpr></code>
+            <code><MathExpr>f(n)=g(n)</MathExpr></code>
+            <code><MathExpr>Time: O(|V|+|E|)</MathExpr></code>
+            <code><MathExpr>Space: O(|V|)</MathExpr></code>
           </div>
           <div className="truth-proof-card">
             <h3>Optimality Sketch</h3>
             <p>
-              The first time BFS discovers a node, all shallower paths have already been explored.
-              Therefore the first discovery depth is the shortest path depth. If the goal is reached,
-              the returned path is optimal for an unweighted grid.
+              Before any vertex at depth d+1 is removed from the queue, every reachable
+              vertex at depth d has been discovered. If the goal were reachable by a shorter
+              path, BFS would remove it earlier. Thus the returned path is shortest.
             </p>
           </div>
         </div>
@@ -246,25 +477,74 @@ function TruthScannerPage({ onNavigate }) {
           <div className="truth-proof-card">
             <h3>Priority Rule</h3>
             <p>
-              A* expands the <TruthTerm id="frontier" {...termProps}>frontier</TruthTerm> node with minimum{' '}
-              <TruthTerm id="f-score" {...termProps}>f(n)</TruthTerm>, where f(n) combines the paid cost{' '}
+              A* is the informed search condition. It expands a{' '}
+              <TruthTerm id="frontier" {...termProps}>frontier</TruthTerm> node satisfying the minimum{' '}
+              <TruthTerm id="f-score" {...termProps}>f(n)</TruthTerm> rule, where f(n) combines the paid cost{' '}
               <TruthTerm id="g-score" {...termProps}>g(n)</TruthTerm> and the remaining estimate{' '}
               <TruthTerm id="h-score" {...termProps}>h(n)</TruthTerm>.
             </p>
           </div>
           <div className="truth-equation-card truth-equation-card-large">
-            <code>f(n)=g(n)+h(n)</code>
-            <code>choose argmin f(n)</code>
-            <code>tie-break by lower h(n)</code>
+            <code><MathExpr>f(n)=g(n)+h(n)</MathExpr></code>
+            <code><MathExpr>choose argmin f(n)</MathExpr></code>
+            <code><MathExpr>tie-break by lower h(n)</MathExpr></code>
           </div>
           <div className="truth-proof-card">
             <h3>Heuristic Conditions</h3>
             <p>
-              If h(n) is <TruthTerm id="admissible" {...termProps}>admissible</TruthTerm>, A* does not overestimate the
-              remaining cost. If h(n) is <TruthTerm id="consistent" {...termProps}>consistent</TruthTerm>, f-values remain
-              well ordered across edges. These conditions explain why A* can be both efficient and
-              optimal.
+              On the thesis grid, Manhattan distance is{' '}
+              <TruthTerm id="admissible" {...termProps}>admissible</TruthTerm> because every 4-connected path must pay
+              the horizontal plus vertical displacement. It is{' '}
+              <TruthTerm id="consistent" {...termProps}>consistent</TruthTerm> because one move changes Manhattan
+              distance by at most one.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="truth-section">
+        <div className="truth-section-heading">
+          <span>Heuristic Audit</span>
+          <h2>Truth Scanner Trace Validation</h2>
+        </div>
+        <div className="truth-audit-layout">
+          <article className="truth-proof-card">
+            <h3>Soundness Criterion</h3>
+            <p>
+              For an A* step <MathExpr>t</MathExpr>, let <MathExpr>F<sub>t</sub></MathExpr> be the frontier before expansion. The trace is
+              sound when the recorded node <MathExpr>n*<sub>t</sub></MathExpr> satisfies:
+            </p>
+            <code className="truth-inline-equation"><MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr></code>
+            <p>
+              If several nodes share the same minimum f(n), any minimizer is formally valid.
+            </p>
+          </article>
+          <div className="truth-table-wrap">
+            <table className="truth-audit-table">
+              <caption>Sample A* frontier audit from the thesis experiment trace</caption>
+              <thead>
+                <tr>
+                  <th>Step</th>
+                  <th>Candidate</th>
+                  <th>g(n)</th>
+                  <th>h(n)</th>
+                  <th>f(n)</th>
+                  <th>Selected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {AUDIT_TRACE_ROWS.map((row) => (
+                  <tr key={`${row.step}-${row.node}`} className={row.selected === 'Yes' ? 'selected' : ''}>
+                    <td>{row.step}</td>
+                    <td>{row.node}</td>
+                    <td>{row.g}</td>
+                    <td>{row.h}</td>
+                    <td>{row.f}</td>
+                    <td>{row.selected}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -276,37 +556,52 @@ function TruthScannerPage({ onNavigate }) {
         </div>
         <div className="truth-compare-grid">
           <article className="truth-algorithm-card">
-            <h3>b_graph</h3>
+            <h3><MathExpr>b<sub>graph</sub></MathExpr></h3>
             <p>
               The structural branching factor estimates how dense the graph is before any algorithm
               runs:
             </p>
-            <code>b_graph = 2|E| / |V|</code>
+            <code><MathExpr>b<sub>graph</sub> = <MathFraction numerator="2|E|" denominator="|V|" /></MathExpr></code>
           </article>
           <article className="truth-algorithm-card">
-            <h3>b_observed</h3>
+            <h3><MathExpr>b<sub>observed</sub></MathExpr></h3>
             <p>
               The trace branching factor measures the legal successor decisions actually encountered:
             </p>
-            <code>b_observed = legal successors / expansions</code>
+            <code><MathExpr>b<sub>observed</sub> = <MathFraction numerator="legal successors" denominator="expansions" /></MathExpr></code>
           </article>
           <article className="truth-algorithm-card truth-algorithm-card-astar">
-            <h3>b_effective</h3>
+            <h3><MathExpr>b<sub>effective</sub></MathExpr></h3>
             <p>
               The <TruthTerm id="effective-branching" {...termProps}>effective branching</TruthTerm> factor asks what search
               tree would produce the observed expansion count:
             </p>
-            <code>N = 1 + b* + (b*)^2 + ... + (b*)^d</code>
+            <code><MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr></code>
           </article>
         </div>
         <div className="truth-verdict">
           <span>Scientific Interpretation</span>
-          <strong>Heuristic value is not a vibe; it is a reduction in effective search space.</strong>
+          <strong>Heuristic value is a measured reduction in effective search space.</strong>
           <p>
             If A* reaches the same optimal depth as BFS while expanding fewer states and producing a
             lower b*, then h(n) has made the search behave as if the graph were narrower. That is the
-            “truth scan” claim in mathematical form.
+            Truth Scanner claim in mathematical form.
           </p>
+        </div>
+      </section>
+
+      <section className="truth-section truth-section-accent">
+        <div className="truth-section-heading">
+          <span>Empirical Grounding</span>
+          <h2>What The Thesis Results Actually Support</h2>
+        </div>
+        <div className="truth-metric-grid">
+          {VALIDITY_METRICS.map(([label, value]) => (
+            <article key={label} className="truth-metric">
+              <span>{label}</span>
+              <small>{value}</small>
+            </article>
+          ))}
         </div>
       </section>
 

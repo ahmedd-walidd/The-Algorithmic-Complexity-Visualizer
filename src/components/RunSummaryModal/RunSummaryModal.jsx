@@ -1,12 +1,75 @@
 import ModalShell from '../common/ModalShell/ModalShell';
 import { formatNumber, formatPercent } from '../../framework/runAnalysis';
+import MathExpr, { MathFraction } from '../common/MathExpr/MathExpr';
 
-function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
+function RunSummaryTerm({ id, children, onOpen }) {
+  return (
+    <button
+      type="button"
+      className="truth-term"
+      onClick={() => onOpen?.(id)}
+      title="Open in Truth Scanner"
+    >
+      {children}
+    </button>
+  );
+}
+
+const renderFormulaWithFractions = (formula) => {
+  if (typeof formula !== 'string') return formula;
+
+  const fractionRegex = /([^=]+?)\s\/\s([^=]+?)(?=\s=|$)/g;
+  const nodes = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = fractionRegex.exec(formula)) !== null) {
+    const [full, numerator, denominator] = match;
+    const start = match.index;
+
+    if (start > lastIndex) {
+      nodes.push(formula.slice(lastIndex, start));
+    }
+
+    nodes.push(
+      <MathFraction
+        key={`frac-${start}`}
+        numerator={numerator.trim()}
+        denominator={denominator.trim()}
+      />
+    );
+
+    lastIndex = start + full.length;
+  }
+
+  if (nodes.length === 0) return formula;
+
+  if (lastIndex < formula.length) {
+    nodes.push(formula.slice(lastIndex));
+  }
+
+  return nodes;
+};
+
+function RunSummaryModal({
+  isOpen,
+  onClose,
+  summary,
+  isRaceMode,
+  exportRows = [],
+  onOpenTruthTerm,
+}) {
   if (!isOpen || !summary) return null;
 
   const { analyses, comparison, learning } = summary;
   const bfsAnalysis = analyses.find((analysis) => analysis.algorithm === 'bfs');
   const astarAnalysis = analyses.find((analysis) => analysis.algorithm === 'astar');
+  const termProps = { onOpen: onOpenTruthTerm };
+  const latestTurn = exportRows.reduce(
+    (max, row) => Math.max(max, Number(row.Turn) || 0),
+    0
+  );
+  const latestRows = exportRows.filter((row) => Number(row.Turn) === latestTurn);
 
   const getMetricTone = (algorithm, metric) => {
     if (!comparison) return 'equal';
@@ -42,6 +105,12 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
   const formatBranching = (value) => formatNumber(value, 2);
 
   const showRaceComparison = Boolean(isRaceMode && comparison);
+  const ledgerTone = (status) => {
+    if (status === 'verified' || status === 'supported') return 'verified';
+    if (status === 'computed') return 'computed';
+    if (status === 'partial') return 'partial';
+    return 'muted';
+  };
 
   return (
     <ModalShell
@@ -60,8 +129,10 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
         ))}
         <p>
           This analysis is generated from the simulation that just finished. It uses the actual board,
-          path, expansion trace, frontier documents, equations, and prediction-pause responses collected
-          during this run.
+          path, expansion trace, <RunSummaryTerm id="frontier" {...termProps}>frontier</RunSummaryTerm>
+          {' '}documents, equations, and{' '}
+          <RunSummaryTerm id="pause-prediction" {...termProps}>Pause-Prediction</RunSummaryTerm>
+          {' '}responses collected during this run.
         </p>
         {comparison && (
           <p>
@@ -70,6 +141,36 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
             Both algorithms reported {comparison.pathLengthsEqual ? 'the same path length' : 'different path lengths'}.
           </p>
         )}
+      </section>
+
+      <section className="run-summary-section">
+        <h3>Dynamic Proof Ledger</h3>
+        <p>
+          These checks are generated from this run's graph, trace, frontier documents, and returned path.
+          They are not static Truth Scanner notes.
+        </p>
+        <div className="run-summary-ledger-grid">
+          {analyses.map((analysis) => (
+            <section key={`${analysis.algorithm}-ledger`} className="run-summary-ledger-card">
+              <h4>{analysis.displayName}</h4>
+              <div className="run-summary-proof-list">
+                {analysis.formal.ledger.map((item) => (
+                  <article
+                    key={`${analysis.algorithm}-${item.label}`}
+                    className={`run-summary-proof-item tone-${ledgerTone(item.status)}`}
+                  >
+                    <div className="run-summary-proof-heading">
+                      <span>{item.label}</span>
+                      <strong>{item.status}</strong>
+                    </div>
+                    <code>{renderFormulaWithFractions(item.formula)}</code>
+                    <p>{item.evidence}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </section>
 
       <section className="run-summary-section">
@@ -83,30 +184,41 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
               <h3>{analysis.displayName}</h3>
               <div className="run-summary-metric-grid">
                 <div className="run-summary-metric">
-                  <span>b_graph</span>
+                    <span>
+                      <RunSummaryTerm id="branching-factor" {...termProps}><MathExpr>b<sub>graph</sub></MathExpr></RunSummaryTerm>
+                    </span>
                   <strong>{formatBranching(analysis.graph.graphBranchingFactor)}</strong>
                 </div>
                 <div className="run-summary-metric">
-                  <span>b_observed</span>
+                    <span>
+                      <RunSummaryTerm id="branching-factor" {...termProps}><MathExpr>b<sub>observed</sub></MathExpr></RunSummaryTerm>
+                    </span>
                   <strong>{formatBranching(analysis.branching.averageLegalBranching)}</strong>
                 </div>
                 <div className="run-summary-metric">
-                  <span>b_effective</span>
+                    <span>
+                      <RunSummaryTerm id="effective-branching" {...termProps}><MathExpr>b<sub>effective</sub></MathExpr></RunSummaryTerm>
+                    </span>
                   <strong>{formatBranching(analysis.branching.effectiveBranchingFactor)}</strong>
                 </div>
               </div>
               <p>
-                b_graph is the average branching implied by the grid topology. b_observed reports the
-                legal successor branching seen in the trace. b_effective is the branching factor that
-                would generate the observed expansions at the measured depth.
+                  <RunSummaryTerm id="branching-factor" {...termProps}><MathExpr>b<sub>graph</sub></MathExpr></RunSummaryTerm>
+                  {' '}is the average branching implied by the grid topology.
+                  {' '}<RunSummaryTerm id="branching-factor" {...termProps}><MathExpr>b<sub>observed</sub></MathExpr></RunSummaryTerm>
+                  {' '}reports the legal successor branching seen in the trace.
+                  {' '}<RunSummaryTerm id="effective-branching" {...termProps}><MathExpr>b<sub>effective</sub></MathExpr></RunSummaryTerm>
+                  {' '}is the branching factor that would generate the observed expansions at the measured depth.
               </p>
             </section>
           ))}
         </div>
         {comparison && bfsAnalysis && astarAnalysis && Number.isFinite(comparison.effectiveBranchingReduction) && (
           <p>
-            Heuristic impact: A* reduced effective branching from b={formatBranching(bfsAnalysis.branching.effectiveBranchingFactor)}
-            {' '}to b={formatBranching(astarAnalysis.branching.effectiveBranchingFactor)}
+              Heuristic impact: A* reduced{' '}
+              <RunSummaryTerm id="effective-branching" {...termProps}>effective branching</RunSummaryTerm>
+              {' '}from <MathExpr>b={formatBranching(bfsAnalysis.branching.effectiveBranchingFactor)}</MathExpr>
+            {' '}to <MathExpr>b={formatBranching(astarAnalysis.branching.effectiveBranchingFactor)}</MathExpr>
             {' '}({formatPercent(comparison.effectiveBranchingReduction, 1)} reduction), which shrinks the
             effective search space on this maze.
           </p>
@@ -133,9 +245,9 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
               <p>{comparison.durationDeltaMs >= 0 ? 'A* computed faster.' : 'BFS computed faster.'}</p>
             </div>
             <div className="race-delta-card race-delta-card-info">
-              <span>Effective b difference</span>
+              <span><MathExpr>Effective b</MathExpr> difference</span>
               <strong>{formatSigned(comparison.effectiveBranchingDelta)}</strong>
-              <p>Lower effective b means fewer expansions for the measured depth.</p>
+              <p>Lower <MathExpr>b</MathExpr> means fewer expansions for the measured depth.</p>
             </div>
             <div className={`race-delta-card ${raceCardTone(comparison.maxFrontierDelta)}`}>
               <span>Max frontier delta</span>
@@ -202,7 +314,10 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
       <section className="run-summary-section">
         <h3>Prediction-Pause Learning Signal</h3>
         {!learning.enabled && (
-          <p>Pause-Prediction was disabled, so this run collected no learner-response data.</p>
+          <p>
+            <RunSummaryTerm id="pause-prediction" {...termProps}>Pause-Prediction</RunSummaryTerm>
+            {' '}was disabled, so this run collected no learner-response data.
+          </p>
         )}
         {learning.enabled && learning.answered === 0 && (
           <p>{learning.interpretation}</p>
@@ -226,6 +341,22 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
                 <span>Avg time</span>
                 <strong>{formatNumber(learning.averageResponseSeconds)}s</strong>
               </div>
+              <div className="run-summary-metric">
+                <span>Best streak</span>
+                <strong>{learning.bestStreak}</strong>
+              </div>
+              <div className="run-summary-metric">
+                <span>Perfect reads</span>
+                <strong>{learning.perfectAnswers}</strong>
+              </div>
+              <div className="run-summary-metric">
+                <span>Avg speed bonus</span>
+                <strong>{formatNumber(learning.averageSpeedBonus)}</strong>
+              </div>
+              <div className="run-summary-metric">
+                <span>Avg frontier bonus</span>
+                <strong>{formatNumber(learning.averageFrontierBonus)}</strong>
+              </div>
             </div>
             <p>
               Early-to-late accuracy change: <strong>{formatPercent(learning.accuracyDelta)}</strong>.
@@ -236,6 +367,41 @@ function RunSummaryModal({ isOpen, onClose, summary, isRaceMode }) {
               needs a pre/post or control-group study.
             </p>
           </>
+        )}
+      </section>
+
+      <section className="run-summary-section">
+        <h3>Run Data Table</h3>
+        {latestRows.length === 0 && (
+          <p>Run an algorithm to populate the formal data table.</p>
+        )}
+        {latestRows.length > 0 && (
+          <div className="run-summary-table-wrap">
+            <table className="run-summary-table">
+              <thead>
+                <tr>
+                  <th>Turn</th>
+                  <th>Mode</th>
+                  <th>Algorithm</th>
+                  <th>Nodes Visited</th>
+                  <th>Path Length</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latestRows.map((row) => (
+                  <tr key={`${row.Turn}-${row.Algorithm}-${row.Timestamp}`}>
+                    <td>{row.Turn}</td>
+                    <td>{row.Mode}</td>
+                    <td>{row.Algorithm}</td>
+                    <td>{row['Nodes Visited']}</td>
+                    <td>{row['Path Length']}</td>
+                    <td>{row.Timestamp}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </ModalShell>

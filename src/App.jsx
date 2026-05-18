@@ -17,13 +17,13 @@ import {
 import { generateMaze } from './utils/mazeGenerator';
 import { bfs } from './algorithms/bfs';
 import { astar } from './algorithms/astar';
-import { buildKnowledgeSpaceSnapshot } from './framework/knowledgeSpace';
 import { buildRunSummary } from './framework/runAnalysis';
-import { buildCsv, buildExportRows } from './utils/exportHelpers';
+import { buildExportRows } from './utils/exportHelpers';
 import {
   buildCorrectPredictionMessage,
   buildWrongPredictionMessage,
   calculateQuestionScore,
+  getPredictionTimeLimitSeconds,
 } from './utils/predictionFeedback';
 import {
   getActiveHoverComparison,
@@ -55,7 +55,7 @@ const TIMELINE_JUMP_STEPS = 5;
 const DEFAULT_SETTINGS = {
   speed: 'medium',
   quizPromptInterval: 15,
-  showEquationOverlay: true,
+  showEquationOverlay: false,
   gridRows: DEFAULT_GRID_CONFIG.rows,
   gridCols: DEFAULT_GRID_CONFIG.cols,
 };
@@ -74,6 +74,12 @@ const INITIAL_SCORE_STATE = {
   totalAttempts: 0,
   totalAccuracyScore: 0,
   totalResponseTime: 0,
+  totalSpeedBonus: 0,
+  totalFrontierBonus: 0,
+  currentStreak: 0,
+  bestStreak: 0,
+  comboMultiplier: 1,
+  perfectAnswers: 0,
   questionHistory: [],
   lastQuestionScore: 0,
   lastAccuracy: 0,
@@ -119,7 +125,6 @@ function App() {
     tutorialStep: 'setup',
   });
   const [isLegendOpen, setIsLegendOpen] = useState(false);
-  const [sidePanelTab, setSidePanelTab] = useState('manifesto');
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
   const [isMazeGenerating, setIsMazeGenerating] = useState(false);
   const [isVisualizing, setIsVisualizing] = useState(false);
@@ -129,6 +134,10 @@ function App() {
   const [isRunSummaryOpen, setIsRunSummaryOpen] = useState(false);
   const [runSummaryIsRaceMode, setRunSummaryIsRaceMode] = useState(false);
   const [exportRows, setExportRows] = useState([]);
+  const [truthScannerContext, setTruthScannerContext] = useState({
+    conceptId: null,
+    returnToAnalysis: false,
+  });
   const timeoutsRef = useRef([]);
   const obstacleDragModeRef = useRef(null);
 
@@ -153,29 +162,53 @@ function App() {
   const [scoreState, setScoreState] = useState(INITIAL_SCORE_STATE);
   const [formalTrace, setFormalTrace] = useState([]);
   const [activeTraceIndex, setActiveTraceIndex] = useState(-1);
+  const [heuristicAuditLog, setHeuristicAuditLog] = useState([]);
+  const [activeHeuristicAuditIndex, setActiveHeuristicAuditIndex] = useState(-1);
   const [traceNotice, setTraceNotice] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [pausedComparison, setPausedComparison] = useState(null);
   const [hoveredFrontierNode, setHoveredFrontierNode] = useState(null);
+  const [rewindHoverTarget, setRewindHoverTarget] = useState(null);
   const isObstaclePainting = isObstacleMode && isMousePressed;
   const pausedPhaseRef = useRef('idle');
 
   const simulationPhaseDisplay = getSimulationPhaseDisplay(simulationPhase);
 
-  const navigateTo = useCallback((path) => {
+  const navigateTo = useCallback((path, options = {}) => {
     const normalizedPath =
       path === '/visualizer' || path === '/truth-scanner' ? path : '/';
 
     if (window.location.pathname !== normalizedPath) {
       window.history.pushState({}, '', normalizedPath);
     }
+    if (!options.preserveTruthContext) {
+      setTruthScannerContext({ conceptId: null, returnToAnalysis: false });
+    }
     setCurrentRoute(normalizedPath);
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, []);
 
+  const openFormalAnalysis = useCallback(() => {
+    if (!runSummary) return;
+    setIsRunSummaryOpen(true);
+    navigateTo('/visualizer');
+  }, [navigateTo, runSummary]);
+
+  const openTruthScannerTerm = useCallback((conceptId) => {
+    if (!conceptId) return;
+    setTruthScannerContext({ conceptId, returnToAnalysis: true });
+    navigateTo('/truth-scanner', { preserveTruthContext: true });
+  }, [navigateTo]);
+
+  const returnToFormalAnalysis = useCallback(() => {
+    setTruthScannerContext({ conceptId: null, returnToAnalysis: false });
+    openFormalAnalysis();
+  }, [openFormalAnalysis]);
+
   const isPausedRef = useRef(false);
   const isQuizModeRef = useRef(false);
   const quizStateRef = useRef(quizState);
+  const scoreStateRef = useRef(INITIAL_SCORE_STATE);
   const quizProgressRef = useRef({
     questionStartedAt: 0,
     attempts: 0,
@@ -256,6 +289,10 @@ function App() {
   }, [quizState]);
 
   useEffect(() => {
+    scoreStateRef.current = scoreState;
+  }, [scoreState]);
+
+  useEffect(() => {
     formalTraceRef.current = formalTrace;
   }, [formalTrace]);
 
@@ -269,6 +306,13 @@ function App() {
     return () => {
       window.removeEventListener('popstate', onPopState);
     };
+  }, []);
+
+  const clearRewindHoverTarget = useCallback(() => {
+    document.querySelectorAll('.node-rewind-target').forEach((el) => {
+      el.classList.remove('node-rewind-target');
+    });
+    setRewindHoverTarget(null);
   }, []);
 
   useEffect(() => {
@@ -330,12 +374,15 @@ function App() {
     if (resetScore) resetGamification();
     setFormalTrace([]);
     setActiveTraceIndex(-1);
+    setHeuristicAuditLog([]);
+    setActiveHeuristicAuditIndex(-1);
     setPausedComparison(null);
     setHoveredFrontierNode(null);
+    clearRewindHoverTarget();
     setTraceNotice('');
     setSimulationPhase('idle');
     pausedPhaseRef.current = 'idle';
-  }, [resetGamification]);
+  }, [clearRewindHoverTarget, resetGamification]);
 
   const rebuildGrid = useCallback(
     (nextConfig) => {
@@ -383,23 +430,6 @@ function App() {
       ];
     });
   }, []);
-
-  const handleExportData = useCallback(() => {
-    if (exportRows.length === 0) return;
-
-    const csv = buildCsv(exportRows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-    link.href = url;
-    link.download = `algorithm-run-data-${timestamp}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }, [exportRows]);
 
   const openSettings = useCallback(() => {
     setIsLegendOpen(false);
@@ -451,10 +481,77 @@ function App() {
     setSettingsDraft(DEFAULT_SETTINGS);
   }, []);
 
+  const getTraversedNodeIndex = useCallback(
+    (row, col) => {
+      if (isRaceMode || isObstacleMode || quizStateRef.current.active) return -1;
+
+      const run = runStateRef.current;
+      if (!run?.visited?.length) return -1;
+      if (run.phase === 'idle') return -1;
+
+      const traversedLimit =
+        run.phase === 'path' || run.phase === 'done'
+          ? run.visited.length
+          : Math.max(0, run.visitedIndex);
+
+      return run.visited
+        .slice(0, traversedLimit)
+        .findIndex((node) => node.row === row && node.col === col);
+    },
+    [isObstacleMode, isRaceMode]
+  );
+
+  const rewindToTraversedNode = useCallback(
+    (row, col) => {
+      const index = getTraversedNodeIndex(row, col);
+      if (index < 0) return false;
+
+      const run = runStateRef.current;
+      clearAllTimeouts();
+      clearNextChoiceHighlight();
+      clearFrontierHoverHighlight();
+      clearPreviewPathHighlight();
+
+      run.phase = 'visited';
+      run.visitedIndex = index + 1;
+      run.pathIndex = 0;
+      redrawRunTimeline(run);
+
+      setActiveTraceIndex(formalTraceRef.current.length > 0 ? index : -1);
+      setActiveHeuristicAuditIndex(heuristicAuditLog.length > 0 ? index : -1);
+      setPausedComparison(null);
+      setHoveredFrontierNode(null);
+
+      if (isVisualizing) {
+        setIsPaused(true);
+        isPausedRef.current = true;
+        pausedPhaseRef.current = 'visited';
+        setSimulationPhase('paused');
+      } else {
+        setSimulationPhase('done');
+      }
+
+      showGamifiedPopup(row, col, `Step ${index + 1}`, 'positive');
+      return true;
+    },
+    [
+      clearAllTimeouts,
+      getTraversedNodeIndex,
+      heuristicAuditLog.length,
+      isVisualizing,
+      showGamifiedPopup,
+    ]
+  );
+
   // Wall drawing / quiz clicks
   const handleMouseDown = useCallback(
     (row, col, event) => {
       if (event?.button !== undefined && event.button !== 0) return;
+
+      if (rewindToTraversedNode(row, col)) {
+        event?.preventDefault?.();
+        return;
+      }
 
       // Quiz interaction
       if (quizState.active) {
@@ -487,7 +584,7 @@ function App() {
         }
         quizProgressRef.current.selectedKeys.add(key);
 
-  quizProgressRef.current.attempts += 1;
+        quizProgressRef.current.attempts += 1;
 
         // Check if the clicked node is one of the correct ones
         const isCorrect = quizState.correctNodes?.some(c => c.row === row && c.col === col);
@@ -497,11 +594,14 @@ function App() {
             quizProgressRef.current.questionStartedAt > 0
               ? performance.now() - quizProgressRef.current.questionStartedAt
               : 0;
-          const scoring = calculateQuestionScore(
-            quizProgressRef.current.attempts,
-            responseTimeMs
-          );
           const attemptsUsed = quizProgressRef.current.attempts;
+          const nextPerfectStreak =
+            attemptsUsed === 1 ? (scoreStateRef.current.currentStreak || 0) + 1 : 0;
+          const scoring = calculateQuestionScore(attemptsUsed, responseTimeMs, {
+            frontierSize: quizState.candidates?.length || 0,
+            streak: nextPerfectStreak,
+            timeLimitSeconds: quizState.timeLimitSeconds,
+          });
           quizProgressRef.current.awarded = true;
           quizProgressRef.current.correctKey = `${row}-${col}`;
 
@@ -513,6 +613,12 @@ function App() {
             totalAttempts: prev.totalAttempts + attemptsUsed,
             totalAccuracyScore: prev.totalAccuracyScore + scoring.accuracy,
             totalResponseTime: prev.totalResponseTime + scoring.responseSeconds,
+            totalSpeedBonus: prev.totalSpeedBonus + scoring.speedBonus,
+            totalFrontierBonus: prev.totalFrontierBonus + scoring.frontierBonus,
+            currentStreak: nextPerfectStreak,
+            bestStreak: Math.max(prev.bestStreak, nextPerfectStreak),
+            comboMultiplier: scoring.comboMultiplier,
+            perfectAnswers: prev.perfectAnswers + (attemptsUsed === 1 ? 1 : 0),
             questionHistory: [
               ...prev.questionHistory,
               {
@@ -520,6 +626,11 @@ function App() {
                 attempts: attemptsUsed,
                 responseSeconds: scoring.responseSeconds,
                 questionScore: scoring.questionScore,
+                speedBonus: scoring.speedBonus,
+                frontierBonus: scoring.frontierBonus,
+                comboMultiplier: scoring.comboMultiplier,
+                streak: nextPerfectStreak,
+                rank: scoring.rank,
               },
             ],
             lastQuestionScore: scoring.questionScore,
@@ -534,6 +645,9 @@ function App() {
             awaitingContinue: true,
             feedbackType: 'correct',
             message: detailedMessage,
+            attemptCount: attemptsUsed,
+            lastScoring: scoring,
+            streak: nextPerfectStreak,
           }));
 
           setScorePopup(scoring);
@@ -542,18 +656,26 @@ function App() {
           const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
           if (el) el.classList.add('node-prediction-correct');
 
-          showGamifiedPopup(row, col, `+${scoring.questionScore}`, 'positive');
+          showGamifiedPopup(row, col, `${scoring.rank} +${scoring.questionScore}`, 'positive');
         } else {
-            // Wrong answer
-            const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
-            if (el) el.classList.add('node-prediction-wrong');
+          // Wrong answer
+          const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
+          if (el) el.classList.add('node-prediction-wrong');
 
-          showGamifiedPopup(row, col, 'Miss!', 'negative');
+          setScoreState((prev) => (
+            prev.currentStreak > 0
+              ? { ...prev, currentStreak: 0, comboMultiplier: 1 }
+              : prev
+          ));
+
+          showGamifiedPopup(row, col, 'Read broken', 'negative');
           const detailedMessage = buildWrongPredictionMessage(row, col, quizState);
           setQuizState(prev => ({
             ...prev,
             feedbackType: 'incorrect',
             message: detailedMessage,
+            attemptCount: quizProgressRef.current.attempts,
+            streak: 0,
             // Keep Continue visible if the learner already selected a valid next node.
             awaitingContinue: prev.awaitingContinue,
           }));
@@ -582,6 +704,7 @@ function App() {
       gridEndpoints,
       showGamifiedPopup,
       applyObstacleState,
+      rewindToTraversedNode,
     ]
   );
 
@@ -617,6 +740,18 @@ function App() {
         setHoveredFrontierNode(null);
       }
 
+      const rewindIndex = getTraversedNodeIndex(row, col);
+      if (rewindIndex >= 0) {
+        document.querySelectorAll('.node-rewind-target').forEach((el) => {
+          el.classList.remove('node-rewind-target');
+        });
+        const el = document.getElementById(`node-${row}-${col}`);
+        if (el) el.classList.add('node-rewind-target');
+        setRewindHoverTarget({ row, col, index: rewindIndex });
+      } else if (rewindHoverTarget) {
+        clearRewindHoverTarget();
+      }
+
       if (!isMousePressed || isVisualizing || !isObstacleMode) return;
 
       const dragMode = obstacleDragModeRef.current ?? 'wall';
@@ -628,10 +763,13 @@ function App() {
       isPaused,
       pausedComparison,
       hoveredFrontierNode,
+      rewindHoverTarget,
       isRaceMode,
       quizState,
       isObstacleMode,
       applyObstacleState,
+      clearRewindHoverTarget,
+      getTraversedNodeIndex,
     ]
   );
 
@@ -728,6 +866,7 @@ function App() {
       redrawRunTimeline(run);
       const nextTraceIndex = Math.max(0, Math.min(run.visitedIndex - 1, formalTraceRef.current.length - 1));
       setActiveTraceIndex(formalTraceRef.current.length > 0 ? nextTraceIndex : -1);
+      setActiveHeuristicAuditIndex(nextTraceIndex);
 
       if (nextPosition >= maxPosition) {
         run.phase = 'done';
@@ -897,6 +1036,14 @@ function App() {
     resetVisualizationState,
   ]);
 
+  const handleAlgorithmChange = useCallback((nextAlgorithm) => {
+    if (isVisualizing) return;
+
+    setAlgorithm(nextAlgorithm);
+    setHeuristicAuditLog([]);
+    setActiveHeuristicAuditIndex(-1);
+  }, [isVisualizing]);
+
   // Animation engine
   const animateAlgorithm = useCallback((visited, path, prefix, ms, optionsByIndex, onDone, onStep) => {
     if (visited.length === 0) {
@@ -996,12 +1143,18 @@ function App() {
                 awaitingContinue: false,
                 continueFunc: null,
                 feedbackType: 'question',
+                attemptCount: 0,
+                challengeIndex: 0,
+                timeLimitSeconds: 0,
+                deadlineAt: 0,
+                lastScoring: null,
               });
               quizProgressRef.current = {
                 questionStartedAt: 0,
                 attempts: 0,
                 selectedKeys: new Set(),
                 awarded: false,
+                correctKey: null,
               };
 
               const n = run.visited[run.visitedIndex];
@@ -1015,14 +1168,23 @@ function App() {
               scheduleNextTick();
             };
 
+            const timeLimitSeconds = getPredictionTimeLimitSeconds(selectable.length);
+            const challengeIndex = (scoreStateRef.current.questionsAnswered || 0) + 1;
+
             setQuizState({
               active: true,
               candidates: selectable,
               correctNodes: correct,
-              message: 'Quiz: Which frontier node is the mathematically valid next choice under the current algorithm rule? (Click a glowing node)',
+              message: `Round ${challengeIndex}: predict the next expansion before the bonus drains. Click one glowing frontier node.`,
               awaitingContinue: false,
               continueFunc: continueAfterFeedback,
               feedbackType: 'question',
+              attemptCount: 0,
+              challengeIndex,
+              timeLimitSeconds,
+              deadlineAt: performance.now() + timeLimitSeconds * 1000,
+              streak: scoreStateRef.current.currentStreak || 0,
+              lastScoring: null,
               ruleMeta: (() => {
                 const traceStep = formalTraceRef.current[i];
                 const frontier = traceStep?.frontierBeforeExpansion || [];
@@ -1100,7 +1262,7 @@ function App() {
     step();
   }, [quizPromptInterval]);
 
-  const animateAlgorithmRace = useCallback((visited, path, prefix, ms, onDone, onPathStart) => {
+  const animateAlgorithmRace = useCallback((visited, path, prefix, ms, onDone, onPathStart, onStep) => {
     if (visited.length === 0) {
       onDone?.();
       return;
@@ -1149,6 +1311,7 @@ function App() {
         el.classList.add('node-visited');
       }
 
+      onStep?.(visitedIndex);
       visitedIndex += 1;
       const t = setTimeout(visitStep, ms);
       timeoutsRef.current.push(t);
@@ -1178,6 +1341,8 @@ function App() {
     setStats(null);
     setFormalTrace([]);
     setActiveTraceIndex(-1);
+    setHeuristicAuditLog([]);
+    setActiveHeuristicAuditIndex(-1);
     setPausedComparison(null);
     setHoveredFrontierNode(null);
     setTraceNotice('');
@@ -1210,6 +1375,7 @@ function App() {
         { withTrace: true }
       );
       const astarVisited = astarResult.visitedNodesInOrder;
+      const astarAudit = astarResult.heuristicAuditByIndex || [];
       const astarDurationMs = performance.now() - astarStart;
       const astarEnd = gAstar[gridEndpoints.end.row][gridEndpoints.end.col];
       const astarPathNodes = astarEnd.isVisited ? getNodesInShortestPathOrder(astarEnd) : [];
@@ -1249,7 +1415,7 @@ function App() {
             buildRunSummary({
               grid: cleanGrid,
               runResults,
-              scoreState,
+              scoreState: scoreStateRef.current,
               isQuizMode,
               quizPromptInterval,
             })
@@ -1264,10 +1430,20 @@ function App() {
       };
 
       setTraceNotice('Detailed side-panel trace is disabled in Race Mode, but each algorithm still contributes formal trace data to the result summary.');
+      setHeuristicAuditLog(astarAudit);
+      setActiveHeuristicAuditIndex(astarAudit.length > 0 ? 0 : -1);
 
       // race mode: independent animation loops for both sides
       animateAlgorithmRace(bfsVisited, bfsPathNodes, 'bfs-', ms, onDone, onPathStart);
-      animateAlgorithmRace(astarVisited, astarPathNodes, 'astar-', ms, onDone, onPathStart);
+      animateAlgorithmRace(
+        astarVisited,
+        astarPathNodes,
+        'astar-',
+        ms,
+        onDone,
+        onPathStart,
+        (stepIndex) => setActiveHeuristicAuditIndex(stepIndex)
+      );
     } else {
       // Single algorithm.
       const copy = cloneGrid(cleanGrid);
@@ -1284,8 +1460,14 @@ function App() {
       const visited = result.visitedNodesInOrder;
       const predictionOptions = isQuizMode ? result.predictionOptionsByIndex : null;
       const traceByIndex = result.formalTraceByIndex || [];
+      const auditByIndex = algorithm === 'astar' ? result.heuristicAuditByIndex || [] : [];
       setFormalTrace(traceByIndex);
       setActiveTraceIndex(traceByIndex.length > 0 ? 0 : -1);
+      setHeuristicAuditLog(auditByIndex);
+      setActiveHeuristicAuditIndex(auditByIndex.length > 0 ? 0 : -1);
+      if (algorithm === 'astar') {
+        setIsSidePanelOpen(true);
+      }
 
       const pathNodes = end.isVisited
         ? getNodesInShortestPathOrder(end)
@@ -1317,7 +1499,7 @@ function App() {
             buildRunSummary({
               grid: cleanGrid,
               runResults,
-              scoreState,
+              scoreState: scoreStateRef.current,
               isQuizMode,
               quizPromptInterval,
             })
@@ -1330,6 +1512,7 @@ function App() {
         },
         (stepIndex) => {
           setActiveTraceIndex(stepIndex);
+          setActiveHeuristicAuditIndex(algorithm === 'astar' ? stepIndex : -1);
         }
       );
     }
@@ -1345,7 +1528,6 @@ function App() {
     quizPromptInterval,
     isVisualizing,
     isQuizMode,
-    scoreState,
     clearRunSummary,
     resetGamification,
     resetRunState,
@@ -1357,26 +1539,14 @@ function App() {
       ? formalTrace[activeTraceIndex]
       : null;
 
-  const knowledgeSpaceSnapshot = useMemo(
-    () =>
-      buildKnowledgeSpaceSnapshot({
-        grid,
-        algorithm,
-        currentTrace,
-        formalTrace,
-        stats,
-        isRaceMode,
-      }),
-    [grid, algorithm, currentTrace, formalTrace, stats, isRaceMode]
-  );
-
   const activeHoverComparison = useMemo(
     () => getActiveHoverComparison({ isRaceMode, isPaused, pausedComparison, quizState }),
     [isRaceMode, isPaused, pausedComparison, quizState]
   );
 
-  const renderTraceEquation = useCallback((scores) => {
-    return <TraceEquation scores={scores} />;
+  const renderTraceEquation = useCallback((scores, options = {}) => {
+    const animate = typeof options === 'object' && Boolean(options.animate);
+    return <TraceEquation scores={scores} animate={animate} />;
   }, []);
 
   const hoveredNodeDecision = useMemo(
@@ -1516,7 +1686,14 @@ function App() {
 
   if (currentRoute === '/truth-scanner') {
     return (
-      <TruthScannerPage onNavigate={navigateTo} />
+      <TruthScannerPage
+        hasRunSummary={Boolean(runSummary)}
+        initialConceptId={truthScannerContext.conceptId}
+        showReturnToAnalysis={truthScannerContext.returnToAnalysis}
+        onNavigate={navigateTo}
+        onOpenFormalAnalysis={openFormalAnalysis}
+        onReturnToFormalAnalysis={returnToFormalAnalysis}
+      />
     );
   }
 
@@ -1531,10 +1708,9 @@ function App() {
         averageTryAccuracy={averageTryAccuracy}
         closeLegend={closeLegend}
         closeSettings={closeSettings}
-        exportRows={exportRows}
+        currentRoute={currentRoute}
         handleClearBoard={handleClearBoard}
         handleClearPath={handleClearPath}
-        handleExportData={handleExportData}
         handleGenerateMaze={handleGenerateMaze}
         handleRaceModeToggle={handleRaceModeToggle}
         handleVisualize={handleVisualize}
@@ -1549,15 +1725,19 @@ function App() {
         isVisualizing={isVisualizing}
         jumpTimeline={jumpTimeline}
         openLegend={openLegend}
+        onNavigate={navigateTo}
+        onOpenFormalAnalysis={openFormalAnalysis}
+        onOpenTruthTerm={openTruthScannerTerm}
         openSettings={openSettings}
         quizState={quizState}
         resetSettingsToDefaults={resetSettingsToDefaults}
         runSummary={runSummary}
         runSummaryIsRaceMode={runSummaryIsRaceMode}
+        exportRows={exportRows}
         saveSettings={saveSettings}
         scorePopup={scorePopup}
         scoreState={scoreState}
-        setAlgorithm={setAlgorithm}
+        setAlgorithm={handleAlgorithmChange}
         setIsObstacleMode={setIsObstacleMode}
         setIsQuizMode={setIsQuizMode}
         setIsRunSummaryOpen={setIsRunSummaryOpen}
@@ -1569,6 +1749,7 @@ function App() {
 
       <VisualizerWorkspace
         activeHoverComparison={activeHoverComparison}
+        algorithm={algorithm}
         currentTrace={currentTrace}
         formalTrace={formalTrace}
         grid={grid}
@@ -1577,18 +1758,20 @@ function App() {
         handleMouseUp={handleMouseUp}
         hoveredFrontierNode={hoveredFrontierNode}
         hoveredNodeDecision={hoveredNodeDecision}
+        hasOpenModal={isSettingsOpen || isLegendOpen || isRunSummaryOpen}
         isPaused={isPaused}
         isSidePanelOpen={isSidePanelOpen}
         isMazeGenerating={isMazeGenerating}
         isRaceMode={isRaceMode}
         isVisualizing={isVisualizing}
-        knowledgeSpaceSnapshot={knowledgeSpaceSnapshot}
+        heuristicAuditSteps={heuristicAuditLog}
+        heuristicAuditStepIndex={activeHeuristicAuditIndex}
         raceResultComparison={raceResultComparison}
+        raceAStarAuditIndex={activeHeuristicAuditIndex}
         renderTraceEquation={renderTraceEquation}
         responsiveCellSize={responsiveCellSize}
+        rewindHoverTarget={rewindHoverTarget}
         setIsSidePanelOpen={setIsSidePanelOpen}
-        setSidePanelTab={setSidePanelTab}
-        sidePanelTab={sidePanelTab}
         simulationPhase={simulationPhase}
         showEquationOverlay={showEquationOverlay}
         start={gridEndpoints.start}
@@ -1596,16 +1779,6 @@ function App() {
         stats={stats}
         traceNotice={traceNotice}
       />
-
-      <div className="lab-sequence-actions">
-        <button
-          type="button"
-          className="truth-primary-btn"
-          onClick={() => navigateTo('/truth-scanner')}
-        >
-          Continue To Truth Scanner
-        </button>
-      </div>
     </div>
   );
 }

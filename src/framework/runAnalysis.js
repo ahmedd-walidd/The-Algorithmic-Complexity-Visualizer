@@ -3,8 +3,7 @@ const ALGORITHM_META = {
     displayName: 'BFS',
     scoringRule: 'h(n)=0, f(n)=g(n)',
     complexity:
-      'Time O(|V| + |E|), memory O(|V|). On a 4-neighbor grid, |V| <= rows*cols and |E| <= 2*rows*cols - rows - cols, so BFS is O(rows*cols).',
-    
+      'Time O(|V| + |E|), memory O(|V|). On a 4-neighbor grid, |V| ≤ rows×cols and |E| ≤ 2×rows×cols − rows − cols, so BFS is O(rows×cols).',
     optimality:
       'BFS is optimal on this unweighted grid because the first time a node is discovered, its g value is the shortest distance from the start.',
   },
@@ -12,8 +11,7 @@ const ALGORITHM_META = {
     displayName: 'A*',
     scoringRule: 'f(n)=g(n)+h(n)',
     complexity:
-      'With a priority queue, time is O(|E| log |V|) and memory is O(|V|). This implementation sorts OPEN each expansion, giving O(sum |OPEN_i| log |OPEN_i| + |E|), worst-case O(|V|^2 log |V|).',
-    
+      'With a priority queue, time is O(|E| log |V|) and memory is O(|V|). This implementation sorts OPEN each expansion, giving O(Σ |OPENᵢ| log |OPENᵢ| + |E|), worst-case O(|V|² log |V|).',
     optimality:
       'A* is optimal here because the heuristic is the exact remaining grid distance computed from the goal, so it is admissible and consistent.',
   },
@@ -162,7 +160,6 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
   );
   const rejectedNeighborAudits = totalNeighborAudits - acceptedNeighborAudits;
   const equationChecks = formalTrace.filter((step) => step.proofChecks?.equationHolds).length;
-  
   const maxRetrievedDocumentsPerStep = formalTrace.length > 0 ? 3 : 0;
   const schemaDimensions =
     algorithm === 'astar'
@@ -208,9 +205,9 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
     },
     retrieval: {
       statement: finalTrace
-        ? `For the final expansion, R(A,S) retrieved D_rel = {frontier snapshot, equation, neighbor audit}. ` +
+        ? `For the final expansion, R(A,S) retrieved Dᵣₑₗ = {frontier snapshot, equation, neighbor audit}. ` +
           `The last retrieved equation was ${finalTrace.equation}.`
-        : 'No D_rel was retrieved because this run produced no formal trace documents.',
+        : 'No Dᵣₑₗ was retrieved because this run produced no formal trace documents.',
       documentsPerExpansion: maxRetrievedDocumentsPerStep,
       finalEquation: finalTrace?.equation || null,
       finalFrontierSize: finalTrace?.frontierBeforeExpansion?.length || 0,
@@ -222,6 +219,96 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
       totalChecks: formalTrace.length,
     },
   };
+}
+
+function countRuleChecks(algorithm, formalTrace) {
+  const ruleKey = algorithm === 'astar' ? 'frontierMinRuleHolds' : 'queueDepthRuleHolds';
+  return formalTrace.filter((step) => step.proofChecks?.[ruleKey]).length;
+}
+
+function buildFormalLedger({
+  algorithm,
+  openCells,
+  edgeCount,
+  wallCells,
+  visitedCount,
+  solutionDepth,
+  goalReached,
+  traceBranching,
+  effectiveBranchingFactor,
+  formalTrace,
+  finalTrace,
+}) {
+  const graphBranchingFactor = openCells > 0 ? (2 * edgeCount) / openCells : 0;
+  const equationChecks = formalTrace.filter((step) => step.proofChecks?.equationHolds).length;
+  const ruleChecks = countRuleChecks(algorithm, formalTrace);
+  const ruleFormula =
+    algorithm === 'astar'
+      ? 'n*ₜ ∈ argminₙ∈Fₜ(g(n)+h(n))'
+      : 'n*ₜ ∈ argminₙ∈Fₜ depth(n)';
+  const ruleEvidence =
+    formalTrace.length > 0
+      ? `${ruleChecks}/${formalTrace.length} recorded selection checks satisfied the ${algorithm === 'astar' ? 'minimum-f' : 'queue-depth'} rule.`
+      : 'No selection-rule checks were recorded for this run.';
+  const effectiveFormula =
+    goalReached && Number.isFinite(effectiveBranchingFactor)
+      ? `N = 1 + b* + (b*)² + ... + (b*)ᵈ; N=${visitedCount}, d=${solutionDepth}, solved b*=${formatNumber(effectiveBranchingFactor)}`
+      : 'b* undefined because no solution depth was produced.';
+
+  return [
+    {
+      label: 'Graph Construction',
+      formula: `|V| = RC − |W| = ${openCells}; |E| = ${edgeCount}`,
+      evidence: `${wallCells} wall cells were excluded, and every retained edge is a 4-neighbor unit-cost adjacency.`,
+      status: openCells > 0 ? 'verified' : 'not-available',
+    },
+    {
+      label: 'Graph Branching',
+      formula: `b₍graph₎ = 2|E| / |V| = ${2 * edgeCount} / ${openCells} = ${formatNumber(graphBranchingFactor)}`,
+      evidence: 'This is the mean degree of the mapped grid graph before algorithm-specific expansion order is applied.',
+      status: openCells > 0 ? 'computed' : 'not-available',
+    },
+    {
+      label: 'Observed Branching',
+      formula: `b₍observed₎ = legal successors / N = ${traceBranching.legalSuccessors} / ${traceBranching.expansionCount || 0} = ${formatNumber(traceBranching.averageLegalBranching)}`,
+      evidence: `${traceBranching.generatedAttempts} neighbor attempts were audited: ${traceBranching.legalSuccessors} legal, ${traceBranching.rejectedSuccessors} rejected.`,
+      status: traceBranching.expansionCount > 0 ? 'computed' : 'not-available',
+    },
+    {
+      label: 'Effective Branching',
+      formula: effectiveFormula,
+      evidence: goalReached
+        ? 'The value is solved from the measured expansion count and returned path depth, so it is run-specific.'
+        : 'The run did not reach the target, so effective branching cannot be derived from a solution depth.',
+      status: goalReached ? 'computed' : 'not-available',
+    },
+    {
+      label: 'Selection Rule',
+      formula: ruleFormula,
+      evidence: ruleEvidence,
+      status: formalTrace.length > 0 && ruleChecks === formalTrace.length ? 'verified' : 'partial',
+    },
+    {
+      label: 'Equation Trace',
+      formula: finalTrace?.equation || 'No final equation recorded',
+      evidence:
+        formalTrace.length > 0
+          ? `${equationChecks}/${formalTrace.length} trace equations satisfied f(n)=g(n)+h(n).`
+          : 'No equation trace was recorded.',
+      status: formalTrace.length > 0 && equationChecks === formalTrace.length ? 'verified' : 'partial',
+    },
+    {
+      label: 'Optimality Claim',
+      formula:
+        algorithm === 'astar'
+          ? 'Manhattan h is admissible and consistent on the 4-connected unit grid.'
+          : 'Unit-cost BFS expands nodes in nondecreasing depth.',
+      evidence: goalReached
+        ? `The returned path depth is d=${solutionDepth}; the claim is tied to the mapped graph and trace above.`
+        : 'No returned path was available, so no optimal path claim is made for this run.',
+      status: goalReached ? 'supported' : 'not-available',
+    },
+  ];
 }
 
 export function buildAlgorithmRunAnalysis({
@@ -265,6 +352,19 @@ export function buildAlgorithmRunAnalysis({
     pathNodes,
     meta,
   });
+  const ledger = buildFormalLedger({
+    algorithm,
+    openCells,
+    edgeCount,
+    wallCells,
+    visitedCount,
+    solutionDepth,
+    goalReached,
+    traceBranching,
+    effectiveBranchingFactor,
+    formalTrace,
+    finalTrace,
+  });
 
   return {
     algorithm,
@@ -277,7 +377,6 @@ export function buildAlgorithmRunAnalysis({
     pathCoordinates,
     pathPreview: formatPathPreview(pathCoordinates),
     finalEquation: finalTrace?.equation || meta.scoringRule,
-    
     manifesto,
     graph: {
       rows: grid.length,
@@ -295,6 +394,7 @@ export function buildAlgorithmRunAnalysis({
       scoringRule: meta.scoringRule,
       complexity: meta.complexity,
       optimality: meta.optimality,
+      ledger,
     },
   };
 }
@@ -333,6 +433,12 @@ export function buildLearningAnalysis(scoreState, quizPromptInterval, isQuizMode
     quizPromptInterval,
     answered,
     totalScore: scoreState?.totalScore || 0,
+    bestStreak: scoreState?.bestStreak || 0,
+    perfectAnswers: scoreState?.perfectAnswers || 0,
+    averageSpeedBonus:
+      answered > 0 ? (scoreState?.totalSpeedBonus || 0) / answered : 0,
+    averageFrontierBonus:
+      answered > 0 ? (scoreState?.totalFrontierBonus || 0) / answered : 0,
     averageAccuracy:
       answered > 0 ? (scoreState?.totalAccuracyScore || 0) / answered : 0,
     averageAttempts:
@@ -381,8 +487,7 @@ export function buildRunSummary({
               : 0,
           effectiveBranchingReduction:
             byAlgorithm.bfs.branching.effectiveBranchingFactor > 0
-              ?
-                (byAlgorithm.bfs.branching.effectiveBranchingFactor -
+              ? (byAlgorithm.bfs.branching.effectiveBranchingFactor -
                   byAlgorithm.astar.branching.effectiveBranchingFactor) /
                 byAlgorithm.bfs.branching.effectiveBranchingFactor
               : null,

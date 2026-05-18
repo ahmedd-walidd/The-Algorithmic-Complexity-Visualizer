@@ -1,7 +1,26 @@
+.grid-float-shell {
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+}
+
 .grid-container {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.grid-container-floating {
+  position: fixed;
+  z-index: 1200;
+  max-width: calc(100vw - 1.5rem);
+  max-height: calc(100vh - 1.5rem);
+  overflow: auto;
+  padding: 0.7rem;
+  border: 2px solid rgba(125, 211, 252, 0.35);
+  border-radius: 10px;
+  background: rgba(5, 12, 24, 0.92);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52);
 }
 
 .grid-with-axes {

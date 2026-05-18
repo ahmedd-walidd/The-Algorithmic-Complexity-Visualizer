@@ -106,7 +106,7 @@ export function bfs(grid, startNode, endNode, options = {}) {
         equation: `f(n)=g(n)+h(n)=${currentNode.distance}+0=${currentNode.distance}`,
         attempts: attemptLogs,
         summary:
-          'All neighbors were tested. Newly accepted nodes satisfy g_new = g_current + 1 and are appended to queue tail.',
+          'All neighbors were tested. Newly accepted nodes satisfy g(new) = g(current) + 1 and are appended to queue tail.',
       });
     }
   }

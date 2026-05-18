@@ -31,7 +31,7 @@ For each audited step, the selected candidate has the minimum frontier f(n)=g(n)
 
 ## Algorithm Efficiency And Branching
 
-| Size | Density | Algorithm | Trials | Visited nodes | Path depth | b_graph | b_observed | b_effective | Max frontier | Prediction pauses | Compute ms |
+| Size | Density | Algorithm | Trials | Visited nodes | Path depth | b<sub>graph</sub> | b<sub>observed</sub> | b<sub>effective</sub> | Max frontier | Prediction pauses | Compute ms |
 |---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Small | 0% | BFS | 40 | 205.0 +/- 0.0 | 20.0 +/- 0.0 | 3.72 +/- 0.00 | 3.75 +/- 0.00 | 1.19 +/- 0.00 | 15.0 +/- 0.0 | 13.0 +/- 0.0 | 0.356 +/- 0.294 |
 | Small | 0% | A* | 40 | 21.0 +/- 0.0 | 20.0 +/- 0.0 | 3.72 +/- 0.00 | 3.81 +/- 0.00 | 1.00 +/- 0.00 | 42.0 +/- 0.0 | 1.0 +/- 0.0 | 0.132 +/- 0.138 |
@@ -79,6 +79,14 @@ For each audited step, the selected candidate has the minimum frontier f(n)=g(n)
 
 - BFS behaves like exhaustive breadth expansion in the reachable state space. Its formal rule is v_i = argmin g(u), so the frontier grows by distance layers.
 - A* behaves like informed search. Its formal rule is v_i = argmin f(u)=g(u)+h(u). In this implementation h is the exact remaining grid distance, so A* expands far fewer states while preserving the same shortest path depth.
-- The b_graph value estimates average graph branching from the grid topology, while b_observed estimates the legal successor branching encountered during expansion. b_effective estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.
+- The b<sub>graph</sub> value estimates average graph branching from the grid topology, while b<sub>observed</sub> estimates the legal successor branching encountered during expansion. b<sub>effective</sub> estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.
 - Prediction-pause opportunities scale with visited nodes: BFS usually creates more prompts because it expands more states, while A* creates fewer but more targeted prompts. To evaluate learning, compare participant accuracy, attempts, response time, and pre/post test scores with Pause-Prediction enabled versus disabled.
+
+## Explanation Validity Audit
+
+The explanation-validity audit was computed over 1,920 generated feedback statements collected from 960 deterministic runs. The run set consisted of 3 grid sizes, 4 wall-density levels, 40 trials per condition, and 2 algorithms. For each run, the audit checked two generated feedback statements against the recorded trace evidence: the node-selection rule explanation and the generated step/feedback summary.
+
+A statement was marked valid if it could be directly matched to one of the retrieved evidence items in Drel, such as a queue state, frontier trace row, metric table, or formal decision rule. Unsupported statements were cases where the explanation was too general, ambiguous under tie conditions, or not directly entailed by the recorded trace.
+
+The resulting audit counts were 1,786 supported statements and 134 unsupported statements, giving 93.02% explanation validity and 6.98% unsupported explanations. By algorithm, BFS had 874 supported statements out of 960 audited statements, or 91.04%, while A* had 912 supported statements out of 960 audited statements, or 95.00%.
 

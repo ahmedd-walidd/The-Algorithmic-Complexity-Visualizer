@@ -16,7 +16,7 @@
   overflow: auto;
   border: 4px solid #facc15;
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(15, 30, 48, 0.98), rgba(9, 20, 35, 0.98));
+  background: rgba(15, 30, 48, 0.98);
   box-shadow: 0 28px 60px rgba(0, 0, 0, 0.5), inset 0 0 16px rgba(0, 0, 0, 0.45);
   color: #e8f1ff;
   font-family: 'Courier New', Courier, monospace;

@@ -29,14 +29,14 @@
 .icon-fab--settings {
   right: 14px;
   border-color: #4a90d9;
-  background: linear-gradient(180deg, #1b2f4a, #13263d);
+  background: #1b2f4a;
   color: #e8f1ff;
 }
 
 .icon-fab--settings:hover,
 .icon-fab--settings:focus-visible {
   border-color: #6cb6ff;
-  background: linear-gradient(180deg, #244165, #18324f);
+  background: #244165;
 }
 
 .icon-fab-icon {
@@ -48,7 +48,7 @@
 .icon-fab--legend {
   right: 68px;
   border-color: #facc15;
-  background: linear-gradient(180deg, #2a243d, #181327);
+  background: #2a243d;
   color: #fef08a;
   font-size: 1.45rem;
   font-weight: 900;
@@ -57,5 +57,5 @@
 .icon-fab--legend:hover,
 .icon-fab--legend:focus-visible {
   border-color: #fde68a;
-  background: linear-gradient(180deg, #362e4d, #211b34);
+  background: #362e4d;
 }

@@ -20,8 +20,6 @@ function ControlPanel({
   isTimelineControlDisabled,
   onRewind,
   onFastForward,
-  onExportData,
-  exportRowCount = 0,
 }) {
   const isBusy = isVisualizing || isMazeGenerating;
 
@@ -45,18 +43,6 @@ function ControlPanel({
           disabled={isBusy}
         >
           {isObstacleMode ? 'Exit Obstacle Mode' : 'Obstacle Mode'}
-        </ControlButton>
-        <ControlButton
-          variant="success"
-          onClick={onExportData}
-          disabled={isBusy || exportRowCount === 0}
-          title={
-            exportRowCount === 0
-              ? 'Run an algorithm before exporting data'
-              : `Export ${exportRowCount} recorded result row${exportRowCount === 1 ? '' : 's'}`
-          }
-        >
-          Data Export
         </ControlButton>
       </div>
 

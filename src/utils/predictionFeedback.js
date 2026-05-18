@@ -1,8 +1,27 @@
 const GAMIFICATION_WEIGHTS = {
-  alpha: 0.9,
-  beta: 0.1,
   maxQuestionScore: 100,
+  maxComboMultiplier: 2.5,
 };
+
+export function getPredictionTimeLimitSeconds(frontierSize = 0) {
+  const pressure = Math.floor(Math.max(frontierSize - 3, 0) / 2);
+  return Math.max(6, 12 - pressure);
+}
+
+export function getStreakMultiplier(streak = 0) {
+  const multiplier = 1 + Math.min(Math.max(streak, 0), 6) * 0.25;
+  return Math.min(multiplier, GAMIFICATION_WEIGHTS.maxComboMultiplier);
+}
+
+export function getChallengeRank({ attempts = 0, responseSeconds = 0, timeLimitSeconds = 0 }) {
+  if (attempts === 1 && responseSeconds <= Math.max(timeLimitSeconds * 0.35, 2.4)) {
+    return 'Perfect read';
+  }
+
+  if (attempts === 1) return 'Clean call';
+  if (attempts === 2) return 'Recovered';
+  return 'Solved under pressure';
+}
 
 export function buildWrongPredictionMessage(row, col, state) {
   const key = `${row}-${col}`;
@@ -47,16 +66,34 @@ export function buildCorrectPredictionMessage(row, col, state) {
   return `Correct: this node has minimum frontier depth g=${ruleMeta.minG}. In BFS, h=0 so f=g, therefore it is a valid next expansion. Press Continue.`;
 }
 
-export function calculateQuestionScore(attempts, responseTimeMs) {
+export function calculateQuestionScore(attempts, responseTimeMs, options = {}) {
+  const {
+    frontierSize = 0,
+    streak = 0,
+    timeLimitSeconds = getPredictionTimeLimitSeconds(frontierSize),
+  } = options;
   const accuracy = attempts > 0 ? 1 / attempts : 0;
   const responseSeconds = Math.max(responseTimeMs / 1000, 0);
-  const responseComponent = 1 / (1 + responseSeconds);
-  const rawScore =
-    GAMIFICATION_WEIGHTS.alpha * accuracy + GAMIFICATION_WEIGHTS.beta * responseComponent;
+  const timeRatio = timeLimitSeconds > 0
+    ? Math.max(0, 1 - responseSeconds / timeLimitSeconds)
+    : 0;
+  const speedBonus = Math.round(timeRatio * 28);
+  const frontierBonus = Math.min(18, Math.max(0, frontierSize - 2) * 3);
+  const baseScore = Math.round(GAMIFICATION_WEIGHTS.maxQuestionScore * accuracy);
+  const comboMultiplier = attempts === 1 ? getStreakMultiplier(streak) : 1;
+  const questionScore = Math.max(
+    10,
+    Math.round((baseScore + speedBonus + frontierBonus) * comboMultiplier)
+  );
 
   return {
     accuracy,
     responseSeconds,
-    questionScore: Math.round(rawScore * GAMIFICATION_WEIGHTS.maxQuestionScore),
+    questionScore,
+    speedBonus,
+    frontierBonus,
+    comboMultiplier,
+    timeLimitSeconds,
+    rank: getChallengeRank({ attempts, responseSeconds, timeLimitSeconds }),
   };
 }

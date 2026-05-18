@@ -98,24 +98,24 @@ export function buildKnowledgeSpaceSnapshot({
     title: 'K = (A, D, S)',
     artifactSet: [
       {
-        symbol: 'a_board',
+        symbol: 'aᵦₒₐᵣd',
         label: 'Grid search artifact',
         value: `${rows}x${cols} board, ${openCells} open cells`,
       },
       {
-        symbol: 'a_problem',
+        symbol: 'aₚᵣₒᵦₗₑₘ',
         label: 'Start-goal problem',
         value: `${activeAlgorithm.toUpperCase()} from fixed start to fixed goal`,
       },
       {
-        symbol: 'a_walls',
+        symbol: 'a₍walls₎',
         label: 'Obstacle configuration',
         value: `${wallCount} blocked cell${wallCount === 1 ? '' : 's'}`,
       },
     ],
     documentSet: [
       {
-        symbol: 'd_trace',
+        symbol: 'dₜᵣₐcₑ',
         label: 'Formal trace store',
         value:
           traceCount > 0
@@ -123,7 +123,7 @@ export function buildKnowledgeSpaceSnapshot({
             : 'Run a single algorithm to populate trace documents',
       },
       {
-        symbol: 'd_rules',
+        symbol: 'dᵣᵤₗₑₛ',
         label: 'Algorithm rule base',
         value:
           activeAlgorithm === 'astar'
@@ -131,7 +131,7 @@ export function buildKnowledgeSpaceSnapshot({
             : 'BFS uses queue order and minimum g',
       },
       {
-        symbol: 'd_output',
+        symbol: 'dₒᵤₜₚᵤₜ',
         label: 'Measured output',
         value: stats
           ? `${Object.keys(stats).map((key) => key.toUpperCase()).join('/')} result stored`
@@ -139,21 +139,21 @@ export function buildKnowledgeSpaceSnapshot({
       },
     ],
     schemaSet: schemaDimensions.map((dimension, index) => ({
-      symbol: `s_${index + 1}`,
+      symbol: `s${index + 1}`,
       label: dimension,
     })),
     functions: [
       {
         name: 'Φ',
         label: 'Perception mapping',
-        formula: 'Φ(UI_board) -> G = (V, E, w)',
+        formula: 'Φ(UI board) → G = (V, E, w)',
         value:
           'Maps open grid cells to vertices V, connects 4-neighbor moves as edges E, and assigns unit cost w(e)=1. Wall cells are excluded from V.',
       },
       {
         name: 'R',
         label: 'Schema-guided retrieval',
-        formula: 'R : (A x S) -> P(D)',
+        formula: 'R : (A × S) → P(D)',
         value: currentTrace
           ? `Retrieves ${retrievedDocuments.length} trace document classes for step ${currentTrace.expansionIndex + 1}.`
           : 'Waiting for a trace step to retrieve frontier, equation, and neighbor evidence.',
@@ -161,7 +161,7 @@ export function buildKnowledgeSpaceSnapshot({
       {
         name: 'V',
         label: 'Verification constraint',
-        formula: 'For all p in Y, exists d in D_rel such that d entails p',
+        formula: '∀p ∈ Y, ∃d ∈ Dᵣₑₗ such that d ⊨ p',
         value:
           verificationClaims.length > 0
             ? `${verifiedCount}/${verificationClaims.length} current propositions are entailed.`
@@ -169,8 +169,8 @@ export function buildKnowledgeSpaceSnapshot({
       },
     ],
     retrievalExpression: currentTrace
-      ? `D_rel(step ${currentTrace.expansionIndex + 1}) = { frontier, equation, attempts }`
-      : 'D_rel = empty until a single-algorithm run begins',
+      ? `Dᵣₑₗ(step ${currentTrace.expansionIndex + 1}) = { frontier, equation, attempts }`
+      : 'Dᵣₑₗ = empty until a single-algorithm run begins',
     activeStep: currentTrace
       ? {
           expandedNode: formatNode(currentTrace.expandedNode),

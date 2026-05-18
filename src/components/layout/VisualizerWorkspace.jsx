@@ -7,6 +7,7 @@ import { PanelRightOpen } from 'lucide-react';
 
 function VisualizerWorkspace({
   activeHoverComparison,
+  algorithm,
   currentTrace,
   formalTrace,
   grid,
@@ -15,18 +16,20 @@ function VisualizerWorkspace({
   handleMouseUp,
   hoveredFrontierNode,
   hoveredNodeDecision,
+  hasOpenModal = false,
   isPaused,
   isSidePanelOpen,
   isMazeGenerating,
   isRaceMode,
   isVisualizing,
-  knowledgeSpaceSnapshot,
+  heuristicAuditSteps,
+  heuristicAuditStepIndex,
   raceResultComparison,
+  raceAStarAuditIndex,
   renderTraceEquation,
   responsiveCellSize,
+  rewindHoverTarget,
   setIsSidePanelOpen,
-  setSidePanelTab,
-  sidePanelTab,
   simulationPhase,
   showEquationOverlay,
   start,
@@ -75,6 +78,9 @@ function VisualizerWorkspace({
             responsiveCellSize={responsiveCellSize}
             stats={stats}
             raceResultComparison={raceResultComparison}
+            heuristicAuditSteps={heuristicAuditSteps}
+            currentAuditStepIndex={raceAStarAuditIndex}
+            isVisualizing={isVisualizing}
             isMazeGenerating={isMazeGenerating}
           />
         ) : (
@@ -85,6 +91,7 @@ function VisualizerWorkspace({
             onMouseUp={handleMouseUp}
             cellSize={responsiveCellSize}
             isLoading={isMazeGenerating}
+            enableFloating={!hasOpenModal}
           />
         )}
 
@@ -108,19 +115,27 @@ function VisualizerWorkspace({
             renderTraceEquation={renderTraceEquation}
           />
         )}
+
+        {!isRaceMode && rewindHoverTarget && (
+          <section className="rewind-node-prompt" aria-live="polite">
+            <span>Timeline Rewind</span>
+            <strong>Click ({rewindHoverTarget.row}, {rewindHoverTarget.col})</strong>
+            <p>Return the trace and audit to step {rewindHoverTarget.index + 1}.</p>
+          </section>
+        )}
       </div>
 
       {!isRaceMode && isSidePanelOpen && (
         <SidePanel
-          sidePanelTab={sidePanelTab}
-          setSidePanelTab={setSidePanelTab}
+          algorithm={algorithm}
           onClose={() => setIsSidePanelOpen(false)}
-          knowledgeSpaceSnapshot={knowledgeSpaceSnapshot}
           isVisualizing={isVisualizing}
           isPaused={isPaused}
           traceNotice={traceNotice}
           currentTrace={currentTrace}
           formalTrace={formalTrace}
+          heuristicAuditSteps={heuristicAuditSteps}
+          heuristicAuditStepIndex={heuristicAuditStepIndex}
           renderTraceEquation={renderTraceEquation}
           stats={stats}
         />

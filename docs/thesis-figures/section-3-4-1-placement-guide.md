@@ -25,7 +25,7 @@ Use this only if you want to show that both algorithms are being run on the same
 Place `figure-3-4-3-50x50-bfs-astar-result.png` after:
 
 > In practice, the grid has finite size, so BFS cannot expand more than all reachable cells:
-> N_BFS <= 2500.
+> N<sub>BFS</sub> ≤ 2500.
 
 This figure shows the implemented run: BFS expands 1625 states on the obstacle-free 50 x 50 board, while A* expands 40 states.
 
@@ -41,7 +41,6 @@ This is the strongest evidence figure for the section because it shows the actua
 |---|---:|---:|
 | Expanded states | 1625 | 40 |
 | Path depth | 39 | 39 |
-| b_graph | 3.92 | 3.92 |
-| b_observed | 3.94 | 3.90 |
-| b_effective | 1.15 | 1.00 |
-
+| b<sub>graph</sub> | 3.92 | 3.92 |
+| b<sub>observed</sub> | 3.94 | 3.90 |
+| b<sub>effective</sub> | 1.15 | 1.00 |

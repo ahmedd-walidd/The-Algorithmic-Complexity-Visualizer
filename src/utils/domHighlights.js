@@ -89,9 +89,9 @@ export function applyPreviewPathHighlight(nodes, options = {}) {
     })();
 
     if (isForward) {
-      el.dataset.forwardLabel = labelMode === 'heuristic' ? `h ${labelValue}` : String(labelValue);
+      el.dataset.forwardLabel = String(labelValue);
     } else {
-      el.dataset.backwardLabel = labelMode === 'index' ? `g ${labelValue}` : String(labelValue);
+      el.dataset.backwardLabel = String(labelValue);
     }
   });
 }
@@ -109,7 +109,8 @@ export function clearVisualizerDomClasses() {
           'node-prediction-correct',
           'node-prediction-not-correct',
           'node-frontier-hoverable',
-          'node-next-choice'
+          'node-next-choice',
+          'node-rewind-target'
         )
       );
   });

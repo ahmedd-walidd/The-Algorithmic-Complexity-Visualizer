@@ -1,9 +1,11 @@
+import MathExpr from '../common/MathExpr/MathExpr';
+
 const TUTORIAL_STEPS = [
   {
     id: 'setup',
     eyebrow: '1. Configure',
     title: 'Pick a board that stays in view',
-    body: 'Choose the experiment scale, then keep equation overlays enabled when you want g(n), h(n), and f(n) evidence during traversal.',
+    body: <>Choose the experiment scale, then keep equation overlays enabled when you want <MathExpr>g(n)</MathExpr>, <MathExpr>h(n)</MathExpr>, and <MathExpr>f(n)</MathExpr> evidence during traversal.</>,
     image: '/tutorial/landing-setup.png',
   },
   {
@@ -24,7 +26,7 @@ const TUTORIAL_STEPS = [
     id: 'labels',
     eyebrow: '4. Decode',
     title: 'Read g(n) and h(n) node labels',
-    body: 'The yellow g(n) labels show path cost from the start. The blue h(n) labels show estimated remaining cost to the goal. A* chooses by f(n)=g(n)+h(n).',
+    body: <>The yellow <MathExpr>g(n)</MathExpr> labels show path cost from the start. The blue <MathExpr>h(n)</MathExpr> labels show estimated remaining cost to the goal. A* chooses by <MathExpr>f(n)=g(n)+h(n)</MathExpr>.</>,
     image: '/tutorial/trace-inspection.png',
   },
   {
@@ -45,7 +47,7 @@ const TUTORIAL_STEPS = [
     id: 'scanner',
     eyebrow: '7. Study',
     title: 'Continue to the Truth Scanner',
-    body: 'After the lab, move to the Truth Scanner for a math-rigorous explanation of graph models, branching factors, heuristics, and f(n)=g(n)+h(n).',
+    body: <>After the lab, move to the Truth Scanner for a math-rigorous explanation of graph models, branching factors, heuristics, and <MathExpr>f(n)=g(n)+h(n)</MathExpr>.</>,
     image: '/tutorial/truth-scanner.png',
   },
 ];
@@ -82,11 +84,11 @@ function LandingScreen({ gridPresets, gridLimits, landingDraft, setLandingDraft,
         <div className="landing-highlights">
           <article>
             <h3>Formal Trace</h3>
-            <p>Every expansion is logged with f(n)=g(n)+h(n) proofs.</p>
+            <p>Every expansion is logged with <MathExpr>f(n)=g(n)+h(n)</MathExpr> proofs.</p>
           </article>
           <article>
             <h3>Branching Factor</h3>
-            <p>See b_graph, b_observed, and b_effective in the analysis summary.</p>
+            <p>See <MathExpr>b<sub>graph</sub></MathExpr>, <MathExpr>b<sub>observed</sub></MathExpr>, and <MathExpr>b<sub>effective</sub></MathExpr> in the analysis summary.</p>
           </article>
           <article>
             <h3>Heuristic Impact</h3>

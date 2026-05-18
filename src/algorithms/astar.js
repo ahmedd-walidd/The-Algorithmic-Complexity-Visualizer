@@ -1,8 +1,11 @@
+import { auditAStarDecision } from '../utils/heuristicAudit.js';
+
 export function astar(grid, startNode, endNode, options = {}) {
   const { withTrace = false } = options;
   const visitedNodesInOrder = [];
   const openSet = [];
   const formalTraceByIndex = [];
+  const heuristicAuditByIndex = [];
   const goalDistanceMap = computeGoalDistanceMap(grid, endNode);
 
   startNode.distance = 0;
@@ -15,6 +18,12 @@ export function astar(grid, startNode, endNode, options = {}) {
       (a, b) => a.totalDistance - b.totalDistance || a.heuristic - b.heuristic
     );
 
+    const selectedNode = openSet[0];
+    const auditStep = auditAStarDecision(
+      visitedNodesInOrder.length + 1,
+      openSet,
+      selectedNode
+    );
     const currentFrontier = openSet.map((q) => ({
       row: q.row,
       col: q.col,
@@ -34,6 +43,7 @@ export function astar(grid, startNode, endNode, options = {}) {
     currentNode.isVisited = true;
     currentNode.frontierAtExpansion = currentFrontier;
     visitedNodesInOrder.push(currentNode);
+    heuristicAuditByIndex.push(auditStep);
 
     const attemptLogs = [];
 
@@ -168,7 +178,7 @@ export function astar(grid, startNode, endNode, options = {}) {
         equation: `f(n)=g(n)+h(n)=${currentNode.distance}+${currentNode.heuristic}=${currentNode.totalDistance}`,
         attempts: attemptLogs,
         summary:
-          'All neighbors were tested. Accepted updates satisfy relaxation: g_new = g_current + 1 and f_new = g_new + h.',
+          'All neighbors were tested. Accepted updates satisfy relaxation: g(new) = g(current) + 1 and f(new) = g(new) + h.',
       });
     }
   }
@@ -199,7 +209,7 @@ export function astar(grid, startNode, endNode, options = {}) {
     };
   });
 
-  return { visitedNodesInOrder, predictionOptionsByIndex, formalTraceByIndex };
+  return { visitedNodesInOrder, predictionOptionsByIndex, formalTraceByIndex, heuristicAuditByIndex };
 }
 
 function computeGoalDistanceMap(grid, endNode) {

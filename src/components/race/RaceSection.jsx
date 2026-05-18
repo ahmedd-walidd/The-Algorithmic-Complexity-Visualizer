@@ -1,5 +1,6 @@
 import Grid from '../Grid/Grid';
 import StatCard from '../common/StatCard/StatCard';
+import HeuristicAuditPanel from '../panels/HeuristicAuditPanel';
 
 function RaceSection({
   grid,
@@ -9,6 +10,9 @@ function RaceSection({
   responsiveCellSize,
   stats,
   raceResultComparison,
+  heuristicAuditSteps,
+  currentAuditStepIndex,
+  isVisualizing,
   isMazeGenerating,
 }) {
   return (
@@ -69,6 +73,16 @@ function RaceSection({
               </div>
             </StatCard>
           ))}
+        </div>
+      )}
+      {(heuristicAuditSteps || []).length > 0 && (
+        <div className="race-audit-container">
+          <HeuristicAuditPanel
+            auditSteps={heuristicAuditSteps}
+            currentStepIndex={currentAuditStepIndex}
+            isRunning={isVisualizing}
+            isAvailable
+          />
         </div>
       )}
     </>
