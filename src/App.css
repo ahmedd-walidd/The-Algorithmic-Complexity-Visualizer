@@ -2413,6 +2413,51 @@
   font-variant-numeric: tabular-nums;
 }
 
+.quiz-difficulty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: 34px;
+  margin: -0.25rem 0 0.75rem;
+  padding: 0.42rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #e5e7eb;
+  text-align: left;
+}
+
+.quiz-difficulty span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.quiz-difficulty em {
+  min-width: 0;
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.quiz-difficulty-easy {
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.quiz-difficulty-medium {
+  border-color: rgba(96, 165, 250, 0.38);
+}
+
+.quiz-difficulty-hard {
+  border-color: rgba(250, 204, 21, 0.48);
+}
+
 .quiz-timer-track {
   height: 8px;
   overflow: hidden;

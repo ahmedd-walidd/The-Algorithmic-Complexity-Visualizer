@@ -82,11 +82,8 @@ For each audited step, the selected candidate has the minimum frontier f(n)=g(n)
 - The b<sub>graph</sub> value estimates average graph branching from the grid topology, while b<sub>observed</sub> estimates the legal successor branching encountered during expansion. b<sub>effective</sub> estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.
 - Prediction-pause opportunities scale with visited nodes: BFS usually creates more prompts because it expands more states, while A* creates fewer but more targeted prompts. To evaluate learning, compare participant accuracy, attempts, response time, and pre/post test scores with Pause-Prediction enabled versus disabled.
 
-## Explanation Validity Audit
+## Trace Evidence Coverage
 
-The explanation-validity audit was computed over 1,920 generated feedback statements collected from 960 deterministic runs. The run set consisted of 3 grid sizes, 4 wall-density levels, 40 trials per condition, and 2 algorithms. For each run, the audit checked two generated feedback statements against the recorded trace evidence: the node-selection rule explanation and the generated step/feedback summary.
+The exported JSON contains 960 deterministic run records. The run set consisted of 3 grid sizes, 4 wall-density levels, 40 trials per condition, and 2 algorithms. These records support the reported BFS/A* metrics, prediction-pause counts, and formal trace examples.
 
-A statement was marked valid if it could be directly matched to one of the retrieved evidence items in Drel, such as a queue state, frontier trace row, metric table, or formal decision rule. Unsupported statements were cases where the explanation was too general, ambiguous under tie conditions, or not directly entailed by the recorded trace.
-
-The resulting audit counts were 1,786 supported statements and 134 unsupported statements, giving 93.02% explanation validity and 6.98% unsupported explanations. By algorithm, BFS had 874 supported statements out of 960 audited statements, or 91.04%, while A* had 912 supported statements out of 960 audited statements, or 95.00%.
-
+The current export does not include a per-statement explanation-validity log. Therefore the experiment results should be cited as trace evidence for algorithm behavior, not as a quantified audit of generated natural-language feedback support.

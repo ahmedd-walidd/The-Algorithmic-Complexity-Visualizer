@@ -87,6 +87,101 @@ const INITIAL_SCORE_STATE = {
   lastAttempts: 0,
 };
 
+const INITIAL_ADAPTIVE_PREDICTION_STATE = {
+  difficulty: 'medium',
+  recent: [],
+  repeatedHeuristicMistakes: 0,
+};
+
+const PREDICTION_DIFFICULTY_META = {
+  easy: { label: 'Easy', maxDistractors: 1 },
+  medium: { label: 'Medium', maxDistractors: 3 },
+  hard: { label: 'Hard', maxDistractors: Infinity },
+};
+
+function nodeKey(node) {
+  return `${node.row}-${node.col}`;
+}
+
+function getAdaptivePredictionDifficulty(state) {
+  const recent = state.recent || [];
+  const lastThree = recent.slice(-3);
+
+  if ((state.repeatedHeuristicMistakes || 0) >= 2) return 'hard';
+  if (lastThree.length >= 3 && lastThree.every((entry) => entry.correct)) return 'hard';
+  if (recent.slice(-2).length >= 2 && recent.slice(-2).every((entry) => !entry.correct)) return 'easy';
+  return state.difficulty || 'medium';
+}
+
+function rankPredictionDistractors(distractors, traceStep, shouldTargetHeuristicTrap) {
+  if (traceStep?.algorithm === 'astar') {
+    return [...distractors].sort((a, b) => {
+      if (shouldTargetHeuristicTrap && a.h !== b.h) return a.h - b.h;
+      return a.f - b.f || a.h - b.h || a.g - b.g;
+    });
+  }
+
+  return [...distractors].sort((a, b) => a.g - b.g);
+}
+
+function buildAdaptivePredictionPrompt(option, traceStep, adaptiveState) {
+  const frontier = traceStep?.frontierBeforeExpansion || [];
+  const selectable = option?.selectable || [];
+  const correct = option?.correct || [];
+  if (selectable.length === 0 || correct.length === 0) return null;
+
+  const difficulty = getAdaptivePredictionDifficulty(adaptiveState);
+  const correctKeys = new Set(correct.map(nodeKey));
+  const byKey = new Map(frontier.map((node) => [nodeKey(node), node]));
+  const selectableWithScores = selectable.map((node) => byKey.get(nodeKey(node)) || node);
+  const correctWithScores = selectableWithScores.filter((node) => correctKeys.has(nodeKey(node)));
+  const distractors = selectableWithScores.filter((node) => !correctKeys.has(nodeKey(node)));
+  const shouldTargetHeuristicTrap =
+    traceStep?.algorithm === 'astar' && (adaptiveState.repeatedHeuristicMistakes || 0) >= 2;
+  const rankedDistractors = rankPredictionDistractors(
+    distractors,
+    traceStep,
+    shouldTargetHeuristicTrap
+  );
+  const maxDistractors = PREDICTION_DIFFICULTY_META[difficulty]?.maxDistractors ?? 3;
+  const chosenDistractors = rankedDistractors.slice(0, maxDistractors);
+  const adaptedSelectable = [...correctWithScores, ...chosenDistractors]
+    .map(({ row, col }) => ({ row, col }));
+
+  return {
+    selectable: adaptedSelectable.length > 0 ? adaptedSelectable : selectable,
+    correct,
+    difficulty,
+    adaptationReason: shouldTargetHeuristicTrap
+      ? 'A* heuristic trap: compare f(n), not h(n) alone.'
+      : difficulty === 'easy'
+        ? 'Support round after recent misses.'
+        : difficulty === 'hard'
+          ? 'Challenge round after a stable streak.'
+          : 'Balanced round.',
+  };
+}
+
+function recordAdaptivePredictionResult(state, result) {
+  const nextRecent = [...(state.recent || []), result].slice(-5);
+  const repeatedHeuristicMistakes = result.heuristicMistake
+    ? (state.repeatedHeuristicMistakes || 0) + 1
+    : result.correct
+      ? 0
+      : state.repeatedHeuristicMistakes || 0;
+
+  const nextState = {
+    ...state,
+    recent: nextRecent,
+    repeatedHeuristicMistakes,
+  };
+
+  return {
+    ...nextState,
+    difficulty: getAdaptivePredictionDifficulty(nextState),
+  };
+}
+
 function App() {
   // -- state --
   const getInitialRoute = () => {
@@ -158,6 +253,8 @@ function App() {
     awaitingContinue: false,
     continueFunc: null,
     feedbackType: 'question',
+    difficulty: INITIAL_ADAPTIVE_PREDICTION_STATE.difficulty,
+    adaptationReason: '',
   });
   const [scoreState, setScoreState] = useState(INITIAL_SCORE_STATE);
   const [formalTrace, setFormalTrace] = useState([]);
@@ -217,6 +314,7 @@ function App() {
     awarded: false,
     correctKey: null,
   });
+  const adaptivePredictionRef = useRef(INITIAL_ADAPTIVE_PREDICTION_STATE);
   const formalTraceRef = useRef(formalTrace);
   const pausedComparisonRef = useRef(null);
   const runStateRef = useRef({
@@ -274,6 +372,7 @@ function App() {
 
   const resetGamification = useCallback(() => {
     setScoreState(INITIAL_SCORE_STATE);
+    adaptivePredictionRef.current = INITIAL_ADAPTIVE_PREDICTION_STATE;
     quizProgressRef.current = {
       questionStartedAt: 0,
       attempts: 0,
@@ -662,8 +761,19 @@ function App() {
 
         // Check if the clicked node is one of the correct ones
         const isCorrect = quizState.correctNodes?.some(c => c.row === row && c.col === col);
+        const clickedFrontierNode = quizState.frontierByKey?.[key];
+        const heuristicMistake =
+          !isCorrect &&
+          quizState.ruleMeta?.algorithm === 'astar' &&
+          clickedFrontierNode &&
+          clickedFrontierNode.h === quizState.ruleMeta.minHOverall &&
+          clickedFrontierNode.f !== quizState.ruleMeta.minF;
         
         if (isCorrect) {
+          adaptivePredictionRef.current = recordAdaptivePredictionResult(
+            adaptivePredictionRef.current,
+            { correct: true, heuristicMistake: false }
+          );
           const responseTimeMs =
             quizProgressRef.current.questionStartedAt > 0
               ? performance.now() - quizProgressRef.current.questionStartedAt
@@ -732,6 +842,10 @@ function App() {
 
           showGamifiedPopup(row, col, `${scoring.rank} +${scoring.questionScore}`, 'positive');
         } else {
+          adaptivePredictionRef.current = recordAdaptivePredictionResult(
+            adaptivePredictionRef.current,
+            { correct: false, heuristicMistake }
+          );
           // Wrong answer
           const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
           if (el) el.classList.add('node-prediction-wrong');
@@ -747,7 +861,9 @@ function App() {
           setQuizState(prev => ({
             ...prev,
             feedbackType: 'incorrect',
-            message: detailedMessage,
+            message: heuristicMistake
+              ? `${detailedMessage} Adaptive note: this looks like an h(n)-only choice. A* must compare f(n)=g(n)+h(n).`
+              : detailedMessage,
             attemptCount: quizProgressRef.current.attempts,
             streak: 0,
             // Keep Continue visible if the learner already selected a valid next node.
@@ -1179,7 +1295,13 @@ function App() {
           run.optionsByIndex &&
           run.optionsByIndex[i]
         ) {
-          const { selectable, correct } = run.optionsByIndex[i];
+          const adaptivePrompt = buildAdaptivePredictionPrompt(
+            run.optionsByIndex[i],
+            formalTraceRef.current[i],
+            adaptivePredictionRef.current
+          );
+          const selectable = adaptivePrompt?.selectable || [];
+          const correct = adaptivePrompt?.correct || [];
           if (selectable && selectable.length > 0) {
 
             selectable.forEach((c) => {
@@ -1222,6 +1344,8 @@ function App() {
                 timeLimitSeconds: 0,
                 deadlineAt: 0,
                 lastScoring: null,
+                difficulty: adaptivePredictionRef.current.difficulty,
+                adaptationReason: '',
               });
               quizProgressRef.current = {
                 questionStartedAt: 0,
@@ -1266,10 +1390,11 @@ function App() {
 
                 if (traceStep.algorithm === 'astar') {
                   const minF = Math.min(...frontier.map((n) => n.f));
+                  const minHOverall = Math.min(...frontier.map((n) => n.h));
                   const minHAmongMinF = Math.min(
                     ...frontier.filter((n) => n.f === minF).map((n) => n.h)
                   );
-                  return { algorithm: 'astar', minF, minHAmongMinF };
+                  return { algorithm: 'astar', minF, minHAmongMinF, minHOverall };
                 }
 
                 const minG = Math.min(...frontier.map((n) => n.g));
@@ -1284,6 +1409,8 @@ function App() {
                 });
                 return byKey;
               })(),
+              difficulty: adaptivePrompt.difficulty,
+              adaptationReason: adaptivePrompt.adaptationReason,
             });
             quizProgressRef.current = {
               questionStartedAt: performance.now(),

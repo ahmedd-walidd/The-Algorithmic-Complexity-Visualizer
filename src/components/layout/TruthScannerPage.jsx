@@ -231,7 +231,7 @@ const AUDIT_TRACE_ROWS = [
 const VALIDITY_METRICS = [
   ['Expansion reduction', 'A* reduced expanded states versus BFS by 83.2% to 96.6% across tested conditions.'],
   ['Trace validation', 'For each audited A* step, the selected node had minimum frontier f(n)=g(n)+h(n).'],
-  ['Explanation support', '1,786 of 1,920 audited statements were supported by retrieved evidence: 93.02%.'],
+  ['Evidence coverage', 'The exported experiment JSON contains 960 deterministic run records with trace-backed BFS/A* metrics.'],
   ['Learning limitation', 'Prediction logs measure accuracy, attempts, and response time; they do not by themselves prove long-term learning gain.'],
 ];
 

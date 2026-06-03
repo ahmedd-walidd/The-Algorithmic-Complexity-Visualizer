@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Clock3, Flame, HelpCircle, MousePointer2, XCircle } from 'lucide-react';
+import { CheckCircle, Clock3, Flame, Gauge, HelpCircle, MousePointer2, XCircle } from 'lucide-react';
 
 function QuizOverlay({ quizState, isPaused }) {
   const [now, setNow] = useState(() => performance.now());
@@ -27,6 +27,9 @@ function QuizOverlay({ quizState, isPaused }) {
   const secondsRemaining = Math.max(0, ((quizState.deadlineAt || now) - now) / 1000);
   const timeRatio = timeLimitSeconds > 0 ? secondsRemaining / timeLimitSeconds : 0;
   const timerStyle = { '--timer-progress': `${Math.max(0, Math.min(1, timeRatio)) * 100}%` };
+  const difficultyLabel = quizState.difficulty
+    ? quizState.difficulty.charAt(0).toUpperCase() + quizState.difficulty.slice(1)
+    : 'Medium';
 
   return (
     <div
@@ -43,6 +46,11 @@ function QuizOverlay({ quizState, isPaused }) {
         <span><Clock3 size={15} aria-hidden="true" /> {secondsRemaining.toFixed(1)}s</span>
         <span><MousePointer2 size={15} aria-hidden="true" /> {quizState.attemptCount || 0} tries</span>
         <span><Flame size={15} aria-hidden="true" /> {quizState.streak || 0} streak</span>
+      </div>
+
+      <div className={`quiz-difficulty quiz-difficulty-${quizState.difficulty || 'medium'}`}>
+        <span><Gauge size={15} aria-hidden="true" /> {difficultyLabel}</span>
+        {quizState.adaptationReason && <em>{quizState.adaptationReason}</em>}
       </div>
 
       <div className="quiz-timer-track" style={timerStyle} aria-hidden="true">
