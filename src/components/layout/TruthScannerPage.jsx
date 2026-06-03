@@ -210,7 +210,7 @@ const PROOF_OBLIGATIONS = [
     label: 'P2.6/P2.7 Heuristic Validity',
     expression: <MathExpr>h(n) ≤ h<sup>*</sup>(n), h(n) ≤ c(n,m)+h(m)</MathExpr>,
     statement:
-      'Manhattan distance is admissible and consistent on the 4-connected unit grid, so A* preserves optimality. Here h*(n) is the true shortest remaining cost and c(n,m)=1 per move.',
+      'The obstacle-aware exact-distance heuristic h_exact(n)=dist_GM(n,g) equals the true remaining shortest-path distance on the mapped graph, so A* preserves optimality. Here h*(n) is the true shortest remaining cost and c(n,m)=1 per move.',
   },
   {
     label: 'P2.9 Trace Soundness',
@@ -496,11 +496,10 @@ function TruthScannerPage({
           <div className="truth-proof-card">
             <h3>Heuristic Conditions</h3>
             <p>
-              On the thesis grid, Manhattan distance is{' '}
-              <TruthTerm id="admissible" {...termProps}>admissible</TruthTerm> because every 4-connected path must pay
-              the horizontal plus vertical displacement. It is{' '}
-              <TruthTerm id="consistent" {...termProps}>consistent</TruthTerm> because one move changes Manhattan
-              distance by at most one.
+              On the mapped graph, the obstacle-aware exact-distance heuristic{' '}
+              <MathExpr>h_exact(n)=dist_GM(n,g)</MathExpr> is{' '}
+              <TruthTerm id="admissible" {...termProps}>admissible</TruthTerm> because it equals the true remaining shortest-path cost. It is{' '}
+              <TruthTerm id="consistent" {...termProps}>consistent</TruthTerm> because shortest-path distances satisfy the triangle inequality across every unit-cost edge.
             </p>
           </div>
         </div>

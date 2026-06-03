@@ -95,7 +95,7 @@ function EquationLinkOverlay({
   const headerLabel = label === 'hover' ? 'Hovered node equation' : 'Active expansion equation';
   const hLabel =
     algorithm === 'astar'
-      ? `h(n) = ${hValue} Manhattan to goal`
+      ? `h(n) = ${hValue} exact graph distance to goal`
       : 'h(n) = 0 in BFS';
 
   return (

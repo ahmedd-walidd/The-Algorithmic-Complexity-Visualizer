@@ -301,7 +301,7 @@ function buildFormalLedger({
       label: 'Optimality Claim',
       formula:
         algorithm === 'astar'
-          ? 'Manhattan h is admissible and consistent on the 4-connected unit grid.'
+          ? 'The obstacle-aware exact-distance heuristic h_exact(n)=dist_GM(n,g) equals the true remaining shortest-path distance on the mapped graph, so it is admissible and consistent.'
           : 'Unit-cost BFS expands nodes in nondecreasing depth.',
       evidence: goalReached
         ? `The returned path depth is d=${solutionDepth}; the claim is tied to the mapped graph and trace above.`
