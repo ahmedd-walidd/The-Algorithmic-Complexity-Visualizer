@@ -22,6 +22,15 @@ npm run dev
 npm run build
 ```
 
+## Validation
+
+```bash
+node scripts/validateAlgorithms.js
+npm run validate:algorithms
+```
+
+Validation checks BFS shortest-path behaviour, A* optimality against BFS, f=g+h trace equations, A* minimum-f selection, no-path handling, and effective branching factor sanity checks.
+
 ### Preview production build
 
 ```bash
