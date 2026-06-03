@@ -11,7 +11,7 @@ const ALGORITHM_META = {
     displayName: 'A*',
     scoringRule: 'f(n)=g(n)+h(n)',
     complexity:
-      'With a priority queue, time is O(|E| log |V|) and memory is O(|V|). This implementation sorts OPEN each expansion, giving O(Σ |OPENᵢ| log |OPENᵢ| + |E|), worst-case O(|V|² log |V|).',
+      'With a binary-heap priority queue, time is O((|V| + |E|) log |V|) and memory is O(|V|). On a 4-neighbor grid this is O(rows x cols log(rows x cols)).',
     optimality:
       'A* is optimal here because the heuristic is the exact remaining grid distance computed from the goal, so it is admissible and consistent.',
   },

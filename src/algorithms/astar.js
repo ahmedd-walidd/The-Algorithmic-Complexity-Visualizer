@@ -3,7 +3,7 @@ import { auditAStarDecision } from '../utils/heuristicAudit.js';
 export function astar(grid, startNode, endNode, options = {}) {
   const { withTrace = false } = options;
   const visitedNodesInOrder = [];
-  const openSet = [];
+  const openSet = new BinaryMinHeap(compareAStarNodes);
   const formalTraceByIndex = [];
   const heuristicAuditByIndex = [];
   const goalDistanceMap = computeGoalDistanceMap(grid, endNode);
@@ -13,18 +13,15 @@ export function astar(grid, startNode, endNode, options = {}) {
   startNode.totalDistance = startNode.heuristic;
   openSet.push(startNode);
 
-  while (openSet.length > 0) {
-    openSet.sort(
-      (a, b) => a.totalDistance - b.totalDistance || a.heuristic - b.heuristic
-    );
-
-    const selectedNode = openSet[0];
+  while (!openSet.isEmpty()) {
+    const selectedNode = openSet.peek();
+    const frontierNodes = openSet.toArray();
     const auditStep = auditAStarDecision(
       visitedNodesInOrder.length + 1,
-      openSet,
+      frontierNodes,
       selectedNode
     );
-    const currentFrontier = openSet.map((q) => ({
+    const currentFrontier = frontierNodes.map((q) => ({
       row: q.row,
       col: q.col,
       g: q.distance,
@@ -35,7 +32,7 @@ export function astar(grid, startNode, endNode, options = {}) {
     const frontierMinHAmongMinF = Math.min(
       ...currentFrontier.filter((n) => n.f === frontierMinF).map((n) => n.h)
     );
-    const currentNode = openSet.shift();
+    const currentNode = openSet.pop();
 
     if (currentNode.isWall) continue;
     if (currentNode.isVisited) continue;
@@ -115,10 +112,12 @@ export function astar(grid, startNode, endNode, options = {}) {
         neighbor.totalDistance = neighbor.distance + neighbor.heuristic;
         neighbor.previousNode = currentNode;
 
-        const wasInOpenSet = openSet.includes(neighbor);
+        const wasInOpenSet = openSet.has(neighbor);
 
         if (!wasInOpenSet) {
           openSet.push(neighbor);
+        } else {
+          openSet.update(neighbor);
         }
 
         attemptLogs.push({
@@ -210,6 +209,123 @@ export function astar(grid, startNode, endNode, options = {}) {
   });
 
   return { visitedNodesInOrder, predictionOptionsByIndex, formalTraceByIndex, heuristicAuditByIndex };
+}
+
+function compareAStarNodes(a, b) {
+  return (
+    a.totalDistance - b.totalDistance ||
+    a.heuristic - b.heuristic ||
+    a.insertionOrder - b.insertionOrder
+  );
+}
+
+class BinaryMinHeap {
+  constructor(compare) {
+    this.compare = compare;
+    this.heap = [];
+    this.indexByNode = new Map();
+    this.nextInsertionOrder = 0;
+  }
+
+  isEmpty() {
+    return this.heap.length === 0;
+  }
+
+  has(node) {
+    return this.indexByNode.has(node);
+  }
+
+  peek() {
+    return this.heap[0] ?? null;
+  }
+
+  push(node) {
+    if (this.has(node)) {
+      this.update(node);
+      return;
+    }
+
+    node.insertionOrder = this.nextInsertionOrder;
+    this.nextInsertionOrder += 1;
+    this.heap.push(node);
+    this.indexByNode.set(node, this.heap.length - 1);
+    this.bubbleUp(this.heap.length - 1);
+  }
+
+  pop() {
+    if (this.heap.length === 0) return null;
+
+    const min = this.heap[0];
+    const last = this.heap.pop();
+    this.indexByNode.delete(min);
+
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      this.indexByNode.set(last, 0);
+      this.sinkDown(0);
+    }
+
+    return min;
+  }
+
+  update(node) {
+    const index = this.indexByNode.get(node);
+    if (index === undefined) return;
+
+    this.bubbleUp(index);
+    this.sinkDown(this.indexByNode.get(node));
+  }
+
+  toArray() {
+    return [...this.heap];
+  }
+
+  bubbleUp(startIndex) {
+    let index = startIndex;
+
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      if (this.compare(this.heap[index], this.heap[parentIndex]) >= 0) break;
+
+      this.swap(index, parentIndex);
+      index = parentIndex;
+    }
+  }
+
+  sinkDown(startIndex) {
+    let index = startIndex;
+
+    while (true) {
+      const leftIndex = index * 2 + 1;
+      const rightIndex = index * 2 + 2;
+      let smallestIndex = index;
+
+      if (
+        leftIndex < this.heap.length &&
+        this.compare(this.heap[leftIndex], this.heap[smallestIndex]) < 0
+      ) {
+        smallestIndex = leftIndex;
+      }
+
+      if (
+        rightIndex < this.heap.length &&
+        this.compare(this.heap[rightIndex], this.heap[smallestIndex]) < 0
+      ) {
+        smallestIndex = rightIndex;
+      }
+
+      if (smallestIndex === index) break;
+
+      this.swap(index, smallestIndex);
+      index = smallestIndex;
+    }
+  }
+
+  swap(a, b) {
+    [this.heap[a], this.heap[b]] = [this.heap[b], this.heap[a]];
+    this.indexByNode.set(this.heap[a], a);
+    this.indexByNode.set(this.heap[b], b);
+  }
 }
 
 function computeGoalDistanceMap(grid, endNode) {
