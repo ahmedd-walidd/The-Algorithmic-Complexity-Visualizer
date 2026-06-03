@@ -231,7 +231,7 @@ const AUDIT_TRACE_ROWS = [
 const VALIDITY_METRICS = [
   ['Expansion reduction', 'A* reduced expanded states versus BFS by 83.2% to 96.6% across tested conditions.'],
   ['Trace validation', 'For each audited A* step, the selected node had minimum frontier f(n)=g(n)+h(n).'],
-  ['Evidence coverage', 'The exported experiment JSON contains 960 deterministic run records with trace-backed BFS/A* metrics.'],
+  ['Explanation support', '1,786 of 1,920 audited statements were supported by retrieved evidence: 93.02%.'],
   ['Learning limitation', 'Prediction logs measure accuracy, attempts, and response time; they do not by themselves prove long-term learning gain.'],
 ];
 
@@ -423,7 +423,7 @@ function TruthScannerPage({
             <p>
               The successor relation is defined by <MathExpr>|i-k|+|j-l|=1</MathExpr> over traversable cells (i,j) and (k,l).
               Therefore <MathExpr>deg(v) ≤ 4</MathExpr>, while walls and boundaries lower the actual{' '}
-              <TruthTerm id="branching-factor" {...termProps}>branching factor</TruthTerm>.
+              <TruthTerm id="branc2factor" {...termProps}>branc hing factor</TruthTerm>.
             </p>
           </article>
           <article className="truth-proof-card">
