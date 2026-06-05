@@ -1,15 +1,20 @@
 import { auditAStarDecision } from '../utils/heuristicAudit.js';
 
+export function calculateManhattanDistance(node, goalNode) {
+  return Math.abs(node.row - goalNode.row) + Math.abs(node.col - goalNode.col);
+}
+
+export const manhattanHeuristic = calculateManhattanDistance;
+
 export function astar(grid, startNode, endNode, options = {}) {
   const { withTrace = false } = options;
   const visitedNodesInOrder = [];
   const openSet = new BinaryMinHeap(compareAStarNodes);
   const formalTraceByIndex = [];
   const heuristicAuditByIndex = [];
-  const goalDistanceMap = computeGoalDistanceMap(grid, endNode);
 
   startNode.distance = 0;
-  startNode.heuristic = goalDistanceMap[startNode.row][startNode.col];
+  startNode.heuristic = manhattanHeuristic(startNode, endNode);
   startNode.totalDistance = startNode.heuristic;
   openSet.push(startNode);
 
@@ -48,6 +53,7 @@ export function astar(grid, startNode, endNode, options = {}) {
       if (withTrace) {
         formalTraceByIndex.push({
           algorithm: 'astar',
+          heuristicType: 'manhattan',
           expansionIndex: visitedNodesInOrder.length - 1,
           expandedNode: { row: currentNode.row, col: currentNode.col },
           expandedScores: {
@@ -79,9 +85,9 @@ export function astar(grid, startNode, endNode, options = {}) {
     for (const neighbor of neighbors) {
       const tentativeG = currentNode.distance + 1;
       const previousG = neighbor.distance;
-      const previousH = Number.isFinite(neighbor.heuristic)
+      const previousH = Number.isFinite(neighbor.totalDistance)
         ? neighbor.heuristic
-        : goalDistanceMap[neighbor.row][neighbor.col];
+        : manhattanHeuristic(neighbor, endNode);
       const previousF = Number.isFinite(neighbor.totalDistance)
         ? neighbor.totalDistance
         : previousG + previousH;
@@ -108,7 +114,7 @@ export function astar(grid, startNode, endNode, options = {}) {
 
       if (tentativeG < neighbor.distance) {
         neighbor.distance = tentativeG;
-        neighbor.heuristic = goalDistanceMap[neighbor.row][neighbor.col];
+        neighbor.heuristic = manhattanHeuristic(neighbor, endNode);
         neighbor.totalDistance = neighbor.distance + neighbor.heuristic;
         neighbor.previousNode = currentNode;
 
@@ -157,6 +163,7 @@ export function astar(grid, startNode, endNode, options = {}) {
     if (withTrace) {
       formalTraceByIndex.push({
         algorithm: 'astar',
+        heuristicType: 'manhattan',
         expansionIndex: visitedNodesInOrder.length - 1,
         expandedNode: { row: currentNode.row, col: currentNode.col },
         expandedScores: {
@@ -212,6 +219,7 @@ export function astar(grid, startNode, endNode, options = {}) {
 }
 
 function compareAStarNodes(a, b) {
+  // Deterministic A* priority: minimum f(n), then lower Manhattan h(n), then insertion order.
   return (
     a.totalDistance - b.totalDistance ||
     a.heuristic - b.heuristic ||
@@ -326,34 +334,6 @@ class BinaryMinHeap {
     this.indexByNode.set(this.heap[a], a);
     this.indexByNode.set(this.heap[b], b);
   }
-}
-
-function computeGoalDistanceMap(grid, endNode) {
-  const rows = grid.length;
-  const cols = grid[0].length;
-  const distances = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
-  const queue = [];
-
-  if (endNode.isWall) return distances;
-
-  distances[endNode.row][endNode.col] = 0;
-  queue.push(endNode);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    const currentDistance = distances[current.row][current.col];
-    const neighbors = getDirectionalNeighbors(current, grid);
-
-    for (const neighbor of neighbors) {
-      if (neighbor.isWall) continue;
-      if (Number.isFinite(distances[neighbor.row][neighbor.col])) continue;
-
-      distances[neighbor.row][neighbor.col] = currentDistance + 1;
-      queue.push(neighbor);
-    }
-  }
-
-  return distances;
 }
 
 function getDirectionalNeighbors(node, grid) {

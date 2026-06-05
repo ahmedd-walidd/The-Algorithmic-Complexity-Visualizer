@@ -8,12 +8,12 @@ export function getPredictionTimeLimitSeconds(frontierSize = 0) {
   return Math.max(6, 12 - pressure);
 }
 
-export function getStreakMultiplier(streak = 0) {
+function getStreakMultiplier(streak = 0) {
   const multiplier = 1 + Math.min(Math.max(streak, 0), 6) * 0.25;
   return Math.min(multiplier, GAMIFICATION_WEIGHTS.maxComboMultiplier);
 }
 
-export function getChallengeRank({ attempts = 0, responseSeconds = 0, timeLimitSeconds = 0 }) {
+function getChallengeRank({ attempts = 0, responseSeconds = 0, timeLimitSeconds = 0 }) {
   if (attempts === 1 && responseSeconds <= Math.max(timeLimitSeconds * 0.35, 2.4)) {
     return 'Perfect read';
   }

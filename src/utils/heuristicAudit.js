@@ -9,6 +9,7 @@
  * @property {number} f
  * @property {boolean} selected
  * @property {boolean} isMinimumF
+ * @property {boolean} isTieBreakMinimum
  */
 
 /**
@@ -18,8 +19,11 @@
  * @property {number} selectedRow
  * @property {number} selectedCol
  * @property {number} minimumF
+ * @property {number} minimumHAmongMinimumF
  * @property {boolean} decisionValid
  * @property {number} tieCount
+ * @property {string} tieHandling
+ * @property {string} heuristicType
  * @property {HeuristicAuditCandidate[]} candidates
  */
 
@@ -58,6 +62,10 @@ export function auditAStarDecision(step, frontier, selectedNode) {
   });
 
   const minimumF = values.length > 0 ? Math.min(...values.map((value) => value.f)) : Infinity;
+  const minimumHAmongMinimumF =
+    values.length > 0
+      ? Math.min(...values.filter((value) => value.f === minimumF).map((value) => value.h))
+      : Infinity;
   const selectedRow = getRow(selectedNode);
   const selectedCol = getCol(selectedNode);
   const selectedKey = `${selectedRow},${selectedCol}`;
@@ -75,19 +83,27 @@ export function auditAStarDecision(step, frontier, selectedNode) {
       f: value.f,
       selected: key === selectedKey,
       isMinimumF: value.f === minimumF,
+      isTieBreakMinimum: value.f === minimumF && value.h === minimumHAmongMinimumF,
     };
   });
 
   const selectedCandidate = candidates.find((candidate) => candidate.selected);
+  const tieCount = candidates.filter((candidate) => candidate.isMinimumF).length;
 
   return {
     step,
+    heuristicType: 'manhattan',
     selectedNodeLabel: `(${selectedRow}, ${selectedCol})`,
     selectedRow,
     selectedCol,
     minimumF,
-    decisionValid: Boolean(selectedCandidate && selectedCandidate.f === minimumF),
-    tieCount: candidates.filter((candidate) => candidate.isMinimumF).length,
+    minimumHAmongMinimumF,
+    decisionValid: Boolean(selectedCandidate && selectedCandidate.isTieBreakMinimum),
+    tieCount,
+    tieHandling:
+      tieCount > 1
+        ? 'Tie on f(n); selected node must have the lowest Manhattan h(n) among minimum-f candidates.'
+        : 'No f(n) tie; selected node only needs the minimum f(n).',
     candidates,
   };
 }

@@ -34,6 +34,7 @@ function HeuristicAuditPanel({
         <div>
           <h2>A* Heuristic Audit</h2>
           <code><MathExpr>f(n) = g(n) + h(n)</MathExpr></code>
+          <small>Manhattan heuristic h(n)</small>
         </div>
       </div>
 
@@ -74,7 +75,9 @@ function HeuristicAuditPanel({
             </p>
             {activeStep.tieCount > 1 && (
               <p className="heuristic-audit-tie">
-                Tie detected: {activeStep.tieCount} candidates share the minimum <MathExpr>f</MathExpr> value
+                {activeStep.tieHandling || (
+                  <>Tie detected: {activeStep.tieCount} candidates share the minimum <MathExpr>f</MathExpr> value; lower Manhattan <MathExpr>h(n)</MathExpr> wins.</>
+                )}
               </p>
             )}
           </div>
@@ -85,9 +88,10 @@ function HeuristicAuditPanel({
                 <tr>
                   <th>Node</th>
                   <th><MathExpr>g(n)</MathExpr></th>
-                  <th><MathExpr>h(n)</MathExpr></th>
+                  <th>Manhattan heuristic <MathExpr>h(n)</MathExpr></th>
                   <th><MathExpr>f(n)</MathExpr></th>
                   <th>Minimum <MathExpr>f</MathExpr>?</th>
+                  <th>Tie-break <MathExpr>h</MathExpr>?</th>
                   <th>Selected?</th>
                 </tr>
               </thead>
@@ -105,6 +109,7 @@ function HeuristicAuditPanel({
                     <td>{formatScore(candidate.h)}</td>
                     <td>{formatScore(candidate.f)}</td>
                     <td>{candidate.isMinimumF ? 'Yes' : 'No'}</td>
+                    <td>{candidate.isTieBreakMinimum ? 'Yes' : 'No'}</td>
                     <td>{candidate.selected ? 'Yes' : 'No'}</td>
                   </tr>
                 ))}

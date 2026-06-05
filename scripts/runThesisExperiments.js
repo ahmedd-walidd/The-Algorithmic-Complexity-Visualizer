@@ -151,6 +151,7 @@ function buildAstarHeuristicAuditTrace() {
   return {
     source:
       'Captured from scripts/runThesisExperiments.js using the implemented astar() formal trace.',
+    heuristicType: 'manhattan',
     size: size.label,
     gridRows: size.rows,
     cols: size.cols,
@@ -186,6 +187,7 @@ function runAlgorithmTrial(algorithm, baseGrid) {
 
   return {
     algorithm,
+    heuristicType: algorithm === 'astar' ? 'manhattan' : 'none',
     visitedCount,
     pathLength: pathNodes.length,
     solutionDepth: analysis.solutionDepth,
@@ -287,6 +289,7 @@ function runExperiments() {
           cols: size.cols,
           density,
           algorithm,
+          heuristicType: algorithm === 'astar' ? 'manhattan' : 'none',
           ...summarizeRows(rows),
         });
       }
@@ -329,6 +332,7 @@ function runExperiments() {
   return {
     generatedAt: new Date().toISOString(),
     method: {
+      astarHeuristicType: 'manhattan',
       trialsPerCondition: TRIALS_PER_CONDITION,
       pauseInterval: PAUSE_INTERVAL,
       sizes: SIZES,
@@ -371,7 +375,7 @@ function renderMarkdown(results) {
   lines.push('## A* Heuristic Audit Trace');
   lines.push('');
   lines.push(
-    `Table 3.5 was captured from one deterministic real maze run using the implemented A* formal trace: ${results.astarHeuristicAuditTrace.size} ${results.astarHeuristicAuditTrace.gridRows}x${results.astarHeuristicAuditTrace.cols}, ${formatPercent(results.astarHeuristicAuditTrace.density, 0)} wall density, trial ${results.astarHeuristicAuditTrace.trial}, seed ${results.astarHeuristicAuditTrace.seed}, start (${results.astarHeuristicAuditTrace.start.row}, ${results.astarHeuristicAuditTrace.start.col}), goal (${results.astarHeuristicAuditTrace.end.row}, ${results.astarHeuristicAuditTrace.end.col}).`
+    `Table 3.5 was captured from one deterministic real maze run using the implemented A* formal trace with heuristicType=${results.astarHeuristicAuditTrace.heuristicType}: ${results.astarHeuristicAuditTrace.size} ${results.astarHeuristicAuditTrace.gridRows}x${results.astarHeuristicAuditTrace.cols}, ${formatPercent(results.astarHeuristicAuditTrace.density, 0)} wall density, trial ${results.astarHeuristicAuditTrace.trial}, seed ${results.astarHeuristicAuditTrace.seed}, start (${results.astarHeuristicAuditTrace.start.row}, ${results.astarHeuristicAuditTrace.start.col}), goal (${results.astarHeuristicAuditTrace.end.row}, ${results.astarHeuristicAuditTrace.end.col}).`
   );
   lines.push('');
   lines.push('| Step | Candidate Node | g(n) | h(n) | f(n) | Selected? |');
@@ -444,7 +448,7 @@ function renderMarkdown(results) {
     '- BFS behaves like exhaustive breadth expansion in the reachable state space. Its formal rule is v_i = argmin g(u), so the frontier grows by distance layers.'
   );
   lines.push(
-    '- A* behaves like informed search. Its formal rule is v_i = argmin f(u)=g(u)+h(u). In this implementation h is the exact remaining grid distance, so A* expands far fewer states while preserving the same shortest path depth.'
+    '- A* behaves like informed search. Its formal rule is v_i = argmin f(u)=g(u)+h(u). In this implementation h is Manhattan distance, h(n)=|row(n)-row(goal)|+|col(n)-col(goal)|, so it ignores walls except through neighbor validation while preserving shortest path depth on 4-connected unit-cost grids.'
   );
   lines.push(
     '- The b<sub>graph</sub> value estimates average graph branching from the grid topology, while b<sub>observed</sub> estimates the legal successor branching encountered during expansion. b<sub>effective</sub> estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.'

@@ -539,6 +539,16 @@ function App() {
     raceRunStateRef.current = { bfs: null, astar: null };
   }, [quizPromptInterval]);
 
+  const clearRuntimeArtifacts = useCallback(() => {
+    clearAllTimeouts();
+    clearVisualizerDomClasses();
+    clearNextChoiceHighlight();
+    clearFrontierHoverHighlight();
+    clearPreviewPathHighlight();
+    resetRunState();
+    clearRunSummary();
+  }, [clearAllTimeouts, clearRunSummary, resetRunState]);
+
   const resetVisualizationState = useCallback(({ resetScore = true } = {}) => {
     setStats(null);
     setIsVisualizing(false);
@@ -559,13 +569,7 @@ function App() {
 
   const rebuildGrid = useCallback(
     (nextConfig) => {
-      clearAllTimeouts();
-      clearVisualizerDomClasses();
-      clearNextChoiceHighlight();
-      clearFrontierHoverHighlight();
-      clearPreviewPathHighlight();
-      resetRunState();
-      clearRunSummary();
+      clearRuntimeArtifacts();
 
       const rows = Math.max(
         GRID_LIMITS.minRows,
@@ -583,10 +587,8 @@ function App() {
       resetVisualizationState();
     },
     [
-      clearRunSummary,
-      resetRunState,
+      clearRuntimeArtifacts,
       resetVisualizationState,
-      clearAllTimeouts,
     ]
   );
 
@@ -1129,13 +1131,7 @@ function App() {
   const handleGenerateMaze = useCallback(() => {
     if (isMazeGenerating) return;
 
-    clearAllTimeouts();
-    clearVisualizerDomClasses();
-    clearNextChoiceHighlight();
-    clearFrontierHoverHighlight();
-    clearPreviewPathHighlight();
-    resetRunState();
-    clearRunSummary();
+    clearRuntimeArtifacts();
 
     setIsMazeGenerating(true);
     resetVisualizationState();
@@ -1162,22 +1158,14 @@ function App() {
       setTimeout(buildRequestedMaze, 0);
     }
   }, [
-    clearAllTimeouts,
-    clearRunSummary,
-    resetRunState,
+    clearRuntimeArtifacts,
     resetVisualizationState,
     gridConfig,
     isMazeGenerating,
   ]);
 
   const handleClearBoard = useCallback(() => {
-    clearAllTimeouts();
-    clearVisualizerDomClasses();
-    clearNextChoiceHighlight();
-    clearFrontierHoverHighlight();
-    clearPreviewPathHighlight();
-    resetRunState();
-    clearRunSummary();
+    clearRuntimeArtifacts();
     setGrid(
       createGrid({
         rows: gridConfig.rows,
@@ -1188,43 +1176,24 @@ function App() {
     );
     resetVisualizationState();
   }, [
-    clearAllTimeouts,
-    clearRunSummary,
-    resetRunState,
+    clearRuntimeArtifacts,
     resetVisualizationState,
     gridConfig,
     gridEndpoints,
   ]);
 
   const handleClearPath = useCallback(() => {
-    clearAllTimeouts();
-    clearVisualizerDomClasses();
-    clearNextChoiceHighlight();
-    clearFrontierHoverHighlight();
-    clearPreviewPathHighlight();
-    resetRunState();
-    clearRunSummary();
+    clearRuntimeArtifacts();
     setGrid((prev) => clearPath(prev));
     resetVisualizationState();
-  }, [clearAllTimeouts, clearRunSummary, resetRunState, resetVisualizationState]);
+  }, [clearRuntimeArtifacts, resetVisualizationState]);
 
   const handleRaceModeToggle = useCallback(() => {
-    clearAllTimeouts();
-    clearVisualizerDomClasses();
-    clearNextChoiceHighlight();
-    clearFrontierHoverHighlight();
-    clearPreviewPathHighlight();
-    resetRunState();
-    clearRunSummary();
+    clearRuntimeArtifacts();
 
     setIsRaceMode((value) => !value);
     resetVisualizationState({ resetScore: false });
-  }, [
-    clearAllTimeouts,
-    clearRunSummary,
-    resetRunState,
-    resetVisualizationState,
-  ]);
+  }, [clearRuntimeArtifacts, resetVisualizationState]);
 
   const handleAlgorithmChange = useCallback((nextAlgorithm) => {
     if (isVisualizing) return;
@@ -1556,13 +1525,7 @@ function App() {
   const handleVisualize = useCallback(() => {
     if (isVisualizing) return;
 
-    clearAllTimeouts();
-    clearVisualizerDomClasses();
-    clearNextChoiceHighlight();
-    clearFrontierHoverHighlight();
-    clearPreviewPathHighlight();
-    resetRunState();
-    clearRunSummary();
+    clearRuntimeArtifacts();
 
     const cleanGrid = clearPath(grid);
     setGrid(cleanGrid);
@@ -1781,7 +1744,7 @@ function App() {
     animateAlgorithm,
     animateAlgorithmRace,
     appendExportRows,
-    clearAllTimeouts,
+    clearRuntimeArtifacts,
     grid,
     algorithm,
     isRaceMode,
@@ -1789,9 +1752,7 @@ function App() {
     quizPromptInterval,
     isVisualizing,
     isQuizMode,
-    clearRunSummary,
     resetGamification,
-    resetRunState,
     gridEndpoints,
   ]);
 

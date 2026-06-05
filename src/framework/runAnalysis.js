@@ -9,19 +9,19 @@ const ALGORITHM_META = {
   },
   astar: {
     displayName: 'A*',
-    scoringRule: 'f(n)=g(n)+h(n)',
+    scoringRule: 'f(n)=g(n)+h(n), h(n)=|row(n)-row(goal)|+|col(n)-col(goal)|',
     complexity:
       'With a binary-heap priority queue, time is O((|V| + |E|) log |V|) and memory is O(|V|). On a 4-neighbor grid this is O(rows x cols log(rows x cols)).',
     optimality:
-      'A* is optimal here because the heuristic is the exact remaining grid distance computed from the goal, so it is admissible and consistent.',
+      'A* is optimal here because Manhattan distance is admissible and consistent on 4-connected unit-cost grids.',
   },
 };
 
-export function getAlgorithmMeta(algorithm) {
+function getAlgorithmMeta(algorithm) {
   return ALGORITHM_META[algorithm] || ALGORITHM_META.bfs;
 }
 
-export function formatNodeCoordinate(node) {
+function formatNodeCoordinate(node) {
   if (!node) return 'N/A';
   return `(${node.row}, ${node.col})`;
 }
@@ -36,7 +36,7 @@ export function formatPercent(value, digits = 1) {
   return `${(Number(value) * 100).toFixed(digits)}%`;
 }
 
-export function formatPathPreview(pathCoordinates, edgeCount = 5) {
+function formatPathPreview(pathCoordinates, edgeCount = 5) {
   if (!pathCoordinates || pathCoordinates.length === 0) return 'No path reached';
   if (pathCoordinates.length <= edgeCount * 2 + 1) {
     return pathCoordinates.join(' -> ');
@@ -47,14 +47,14 @@ export function formatPathPreview(pathCoordinates, edgeCount = 5) {
   return `${head.join(' -> ')} -> ... -> ${tail.join(' -> ')}`;
 }
 
-export function countOpenCells(grid) {
+function countOpenCells(grid) {
   return grid.reduce(
     (total, row) => total + row.filter((node) => !node.isWall).length,
     0
   );
 }
 
-export function countUndirectedEdges(grid) {
+function countUndirectedEdges(grid) {
   let edges = 0;
 
   for (let row = 0; row < grid.length; row++) {
@@ -94,7 +94,7 @@ export function estimateEffectiveBranchingFactor(expandedNodes, solutionDepth) {
   return (low + high) / 2;
 }
 
-export function analyzeTraceBranching(formalTrace = []) {
+function analyzeTraceBranching(formalTrace = []) {
   const expansionCount = formalTrace.length;
   if (expansionCount === 0) {
     return {
@@ -166,7 +166,7 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
       ? [
           'next node choice',
           'distance from start g',
-          'estimated distance to goal h',
+          'Manhattan heuristic h',
           'total priority f',
           'better path relaxation',
         ]
@@ -301,7 +301,7 @@ function buildFormalLedger({
       label: 'Optimality Claim',
       formula:
         algorithm === 'astar'
-          ? 'The obstacle-aware exact-distance heuristic h_exact(n)=dist_GM(n,g) equals the true remaining shortest-path distance on the mapped graph, so it is admissible and consistent.'
+          ? 'Manhattan heuristic h(n)=|row(n)-row(goal)|+|col(n)-col(goal)| is admissible and consistent on this 4-connected unit-cost grid.'
           : 'Unit-cost BFS expands nodes in nondecreasing depth.',
       evidence: goalReached
         ? `The returned path depth is d=${solutionDepth}; the claim is tied to the mapped graph and trace above.`
@@ -368,6 +368,7 @@ export function buildAlgorithmRunAnalysis({
 
   return {
     algorithm,
+    heuristicType: algorithm === 'astar' ? 'manhattan' : 'none',
     displayName: meta.displayName,
     goalReached,
     visitedCount,
@@ -413,7 +414,7 @@ function summarizeQuestionWindow(records) {
   };
 }
 
-export function buildLearningAnalysis(scoreState, quizPromptInterval, isQuizMode) {
+function buildLearningAnalysis(scoreState, quizPromptInterval, isQuizMode) {
   const questionHistory = scoreState?.questionHistory || [];
   const answered = scoreState?.questionsAnswered || 0;
   const midpoint = Math.ceil(questionHistory.length / 2);

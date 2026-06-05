@@ -383,6 +383,7 @@ function RunSummaryModal({
                   <th>Turn</th>
                   <th>Mode</th>
                   <th>Algorithm</th>
+                  <th>Heuristic Type</th>
                   <th>Nodes Visited</th>
                   <th>Path Length</th>
                   <th>Timestamp</th>
@@ -394,6 +395,7 @@ function RunSummaryModal({
                     <td>{row.Turn}</td>
                     <td>{row.Mode}</td>
                     <td>{row.Algorithm}</td>
+                    <td>{row.heuristicType}</td>
                     <td>{row['Nodes Visited']}</td>
                     <td>{row['Path Length']}</td>
                     <td>{row.Timestamp}</td>

@@ -46,11 +46,11 @@ const CONCEPTS = [
   {
     id: 'h-score',
     label: 'h(n)',
-    formula: <MathExpr>h(n) = estimated cost(n,g)</MathExpr>,
+    formula: <MathExpr>h(n) = |row(n)-row(g)| + |col(n)-col(g)|</MathExpr>,
     plain:
-      'h(n) estimates how far a node is from the goal before the algorithm has actually traveled there.',
+      'h(n) is the Manhattan distance from a node to the goal, ignoring walls.',
     formal:
-      'A heuristic guides search by estimating remaining cost to the goal cell g. If h never overestimates the true shortest remaining cost, it is admissible.',
+      'A* uses h(n)=|row(n)-row(g)|+|col(n)-col(g)|. The heuristic reads only coordinates; walls affect A* only when neighbor validation rejects blocked cells.',
     visual: 'n -> ? -> ? -> G\nestimated remaining distance = h(n)',
   },
   {
@@ -160,7 +160,7 @@ const MANIFESTO_TABS = [
       'The thesis verification constraint accepts a claim p only when some retrieved document d entails it. Here p is a claim and d is an evidence document. The page therefore presents formal obligations, not decorative descriptions.',
     items: [
       ['BFS claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>, where <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t and <MathExpr>n*<sub>t</sub></MathExpr> is the selected node.</>],
-      ['A* claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>; ties are valid minimizers. Here <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t.</>],
+      ['A* claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>, with equal f-values tie-broken by lower Manhattan <MathExpr>h(n)</MathExpr>. Here <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t.</>],
       ['Learning claim', <>Valid iff the selected prediction belongs to the formal next-node set <MathExpr>N<sub>t</sub></MathExpr>, the argmin frontier rule at step t.</>],
     ],
   },
@@ -210,7 +210,7 @@ const PROOF_OBLIGATIONS = [
     label: 'P2.6/P2.7 Heuristic Validity',
     expression: <MathExpr>h(n) ≤ h<sup>*</sup>(n), h(n) ≤ c(n,m)+h(m)</MathExpr>,
     statement:
-      'The obstacle-aware exact-distance heuristic h_exact(n)=dist_GM(n,g) equals the true remaining shortest-path distance on the mapped graph, so A* preserves optimality. Here h*(n) is the true shortest remaining cost and c(n,m)=1 per move.',
+      'The Manhattan heuristic h(n)=|row(n)-row(g)|+|col(n)-col(g)| is admissible and consistent on 4-connected unit-cost grids. It does not compute wall-adjusted distances. Here h*(n) is the true shortest remaining cost and c(n,m)=1 per move.',
   },
   {
     label: 'P2.9 Trace Soundness',
@@ -223,9 +223,14 @@ const PROOF_OBLIGATIONS = [
 const AUDIT_TRACE_ROWS = [
   { step: 2, node: '(5, 3)', g: 1, h: 19, f: 20, selected: 'Yes' },
   { step: 2, node: '(4, 2)', g: 1, h: 21, f: 22, selected: 'No' },
+  { step: 2, node: '(5, 1)', g: 1, h: 21, f: 22, selected: 'No' },
   { step: 2, node: '(6, 2)', g: 1, h: 21, f: 22, selected: 'No' },
   { step: 3, node: '(5, 4)', g: 2, h: 18, f: 20, selected: 'Yes' },
+  { step: 3, node: '(6, 3)', g: 2, h: 20, f: 22, selected: 'No' },
   { step: 3, node: '(4, 3)', g: 2, h: 20, f: 22, selected: 'No' },
+  { step: 3, node: '(6, 2)', g: 1, h: 21, f: 22, selected: 'No' },
+  { step: 3, node: '(4, 2)', g: 1, h: 21, f: 22, selected: 'No' },
+  { step: 3, node: '(5, 1)', g: 1, h: 21, f: 22, selected: 'No' },
 ];
 
 const VALIDITY_METRICS = [
@@ -423,7 +428,7 @@ function TruthScannerPage({
             <p>
               The successor relation is defined by <MathExpr>|i-k|+|j-l|=1</MathExpr> over traversable cells (i,j) and (k,l).
               Therefore <MathExpr>deg(v) ≤ 4</MathExpr>, while walls and boundaries lower the actual{' '}
-              <TruthTerm id="branc2factor" {...termProps}>branc hing factor</TruthTerm>.
+              <TruthTerm id="branching-factor" {...termProps}>branching factor</TruthTerm>.
             </p>
           </article>
           <article className="truth-proof-card">
@@ -496,10 +501,10 @@ function TruthScannerPage({
           <div className="truth-proof-card">
             <h3>Heuristic Conditions</h3>
             <p>
-              On the mapped graph, the obstacle-aware exact-distance heuristic{' '}
-              <MathExpr>h_exact(n)=dist_GM(n,g)</MathExpr> is{' '}
-              <TruthTerm id="admissible" {...termProps}>admissible</TruthTerm> because it equals the true remaining shortest-path cost. It is{' '}
-              <TruthTerm id="consistent" {...termProps}>consistent</TruthTerm> because shortest-path distances satisfy the triangle inequality across every unit-cost edge.
+              A* uses the Manhattan heuristic{' '}
+              <MathExpr>h(n)=|row(n)-row(g)|+|col(n)-col(g)|</MathExpr>. It is{' '}
+              <TruthTerm id="admissible" {...termProps}>admissible</TruthTerm> because every 4-connected unit-cost route must pay at least the row and column offset. It is{' '}
+              <TruthTerm id="consistent" {...termProps}>consistent</TruthTerm> because moving to one neighbor changes Manhattan distance by at most one.
             </p>
           </div>
         </div>
@@ -520,7 +525,7 @@ function TruthScannerPage({
             </p>
             <code className="truth-inline-equation"><MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr></code>
             <p>
-              If several nodes share the same minimum f(n), any minimizer is formally valid.
+              If several nodes share the same minimum f(n), this implementation deterministically selects the one with lower Manhattan h(n).
             </p>
           </article>
           <div className="truth-table-wrap">
@@ -531,7 +536,7 @@ function TruthScannerPage({
                   <th>Step</th>
                   <th>Candidate</th>
                   <th>g(n)</th>
-                  <th>h(n)</th>
+                  <th>Manhattan heuristic h(n)</th>
                   <th>f(n)</th>
                   <th>Selected</th>
                 </tr>

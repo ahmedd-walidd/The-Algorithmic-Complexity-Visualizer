@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { bfs } from '../src/algorithms/bfs.js';
-import { astar } from '../src/algorithms/astar.js';
+import { astar, calculateManhattanDistance } from '../src/algorithms/astar.js';
 import { estimateEffectiveBranchingFactor } from '../src/framework/runAnalysis.js';
 
 function makeNode(row, col, start, end, walls = new Set()) {
@@ -113,6 +113,7 @@ function assertAstarTraceIsSound(trace) {
   for (const [index, step] of trace.entries()) {
     assert.equal(step.proofChecks?.equationHolds, true, `A* equation check failed at trace row ${index}`);
     assert.equal(step.proofChecks?.frontierMinRuleHolds, true, `A* minimum-f/tie-break rule failed at trace row ${index}`);
+    assert.equal(step.heuristicType, 'manhattan', `A* heuristic type missing at trace row ${index}`);
     assert.equal(
       step.expandedScores.f,
       step.expandedScores.g + step.expandedScores.h,
@@ -128,8 +129,65 @@ function assertAstarTraceIsSound(trace) {
     assert.ok(selectedFrontierEntry, `A* selected node missing from frontier at trace row ${index}`);
 
     const minF = Math.min(...frontier.map((candidate) => candidate.f));
+    const minHAmongMinF = Math.min(
+      ...frontier.filter((candidate) => candidate.f === minF).map((candidate) => candidate.h)
+    );
     assert.equal(selectedFrontierEntry.f, minF, `A* selected node did not have minimum f at trace row ${index}`);
+    assert.equal(
+      selectedFrontierEntry.h,
+      minHAmongMinF,
+      `A* selected node did not satisfy lower-h tie-break at trace row ${index}`
+    );
   }
+}
+
+function assertAstarAuditIsSound(auditSteps) {
+  assert.ok(auditSteps.length > 0, 'A* should produce heuristic audit rows');
+
+  for (const [index, step] of auditSteps.entries()) {
+    assert.equal(step.heuristicType, 'manhattan', `A* audit heuristic type missing at row ${index}`);
+    assert.equal(step.decisionValid, true, `A* audit decision invalid at row ${index}`);
+    const selected = step.candidates.find((candidate) => candidate.selected);
+    assert.ok(selected, `A* audit selected candidate missing at row ${index}`);
+    assert.equal(selected.f, step.minimumF, `A* audit selected candidate lacks minimum f at row ${index}`);
+    assert.equal(
+      selected.h,
+      step.minimumHAmongMinimumF,
+      `A* audit selected candidate violates lower-h tie-break at row ${index}`
+    );
+  }
+}
+
+function validateManhattanHeuristic() {
+  const start = { row: 4, col: 1 };
+  const end = { row: 0, col: 6 };
+  const walls = [
+    [0, 2],
+    [1, 2],
+    [2, 2],
+    [3, 2],
+    [4, 2],
+  ];
+  const baseGrid = makeGrid(6, 8, start, end, walls);
+  const astarRun = run('astar', baseGrid);
+  const bfsRun = run('bfs', baseGrid);
+
+  assert.equal(
+    calculateManhattanDistance(astarRun.start, astarRun.end),
+    Math.abs(start.row - end.row) + Math.abs(start.col - end.col),
+    'h(start) should equal Manhattan distance to the goal'
+  );
+  assert.equal(
+    astarRun.start.heuristic,
+    calculateManhattanDistance(astarRun.start, astarRun.end),
+    'A* should store Manhattan h(start)'
+  );
+  assert.ok(
+    bfsRun.path.length - 1 > astarRun.start.heuristic,
+    'Manhattan h should ignore walls; this maze requires a longer route than h(start)'
+  );
+  assertAstarTraceIsSound(astarRun.result.formalTraceByIndex);
+  assertAstarAuditIsSound(astarRun.result.heuristicAuditByIndex);
 }
 
 function validateStraightCorridor() {
@@ -147,11 +205,12 @@ function validateStraightCorridor() {
   assert.equal(astarRun.path.length, bfsRun.path.length, 'A* and BFS should return equal optimal path length');
   assert.ok(
     astarRun.result.visitedNodesInOrder.length <= bfsRun.result.visitedNodesInOrder.length,
-    'A* should not expand more nodes than BFS on the straight corridor with exact heuristic'
+    'A* should not expand more nodes than BFS on the straight corridor with Manhattan heuristic'
   );
 
   assertBfsTraceIsSound(bfsRun.result.formalTraceByIndex);
   assertAstarTraceIsSound(astarRun.result.formalTraceByIndex);
+  assertAstarAuditIsSound(astarRun.result.heuristicAuditByIndex);
 }
 
 function validateObstacleDetour() {
@@ -184,6 +243,35 @@ function validateObstacleDetour() {
 
   assertBfsTraceIsSound(bfsRun.result.formalTraceByIndex);
   assertAstarTraceIsSound(astarRun.result.formalTraceByIndex);
+  assertAstarAuditIsSound(astarRun.result.heuristicAuditByIndex);
+}
+
+function validateAstarExpandsBeyondPathOnly() {
+  const start = { row: 2, col: 0 };
+  const end = { row: 2, col: 6 };
+  const walls = [
+    [0, 3],
+    [1, 3],
+    [2, 3],
+    [3, 3],
+  ];
+  const baseGrid = makeGrid(5, 7, start, end, walls);
+
+  const bfsRun = run('bfs', baseGrid);
+  const astarRun = run('astar', baseGrid);
+
+  assertPathStartsAndEnds(astarRun.path, astarRun.start, astarRun.end, 'A*');
+  assert.equal(
+    astarRun.path.length,
+    bfsRun.path.length,
+    'A* should return the same optimal path length as BFS on the misleading-wall grid'
+  );
+  assert.ok(
+    astarRun.result.visitedNodesInOrder.length > astarRun.path.length,
+    'A* with Manhattan h should expand beyond only the d+1 path nodes in this misleading layout'
+  );
+  assertAstarTraceIsSound(astarRun.result.formalTraceByIndex);
+  assertAstarAuditIsSound(astarRun.result.heuristicAuditByIndex);
 }
 
 function validateNoPathCase() {
@@ -220,7 +308,9 @@ function validateEffectiveBranchingFactor() {
 
 function main() {
   validateStraightCorridor();
+  validateManhattanHeuristic();
   validateObstacleDetour();
+  validateAstarExpandsBeyondPathOnly();
   validateNoPathCase();
   validateEffectiveBranchingFactor();
 
