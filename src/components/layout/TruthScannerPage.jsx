@@ -127,17 +127,17 @@ const CONCEPTS = [
 
 const conceptById = Object.fromEntries(CONCEPTS.map((concept) => [concept.id, concept]));
 
-const MANIFESTO_TABS = [
+const GROUNDING_TABS = [
   {
     id: 'knowledge-space',
     label: 'Knowledge Space',
     title: <MathExpr>K = (A, D, S)</MathExpr>,
     body:
-      'The thesis frames the system as a constrained knowledge space. A claim is not accepted because it sounds plausible; it must be supported by an artifact, evidence document, and schema dimension. Here A is the artifact set, D is the evidence document set, and S is the schema dimension set.',
+      'Each completed run becomes a small knowledge space, not just an animation. A is the board and algorithm artifact, D is the evidence produced by the UI and exported logs, and S is the schema that says which rule is being checked.',
     items: [
-      ['A - Artifacts', <><MathExpr>a<sub>i</sub> = (M<sub>i</sub>, G<sub>i</sub>, alg<sub>i</sub>, trace<sub>i</sub>)</MathExpr>: maze, mapped graph, selected algorithm, and execution trace. <MathExpr>M<sub>i</sub>=(R,C,W,s,g)</MathExpr> with rows R, cols C, walls W, start s, goal g.</>],
-      ['D - Evidence', <><MathExpr>d<sub>Φ</sub>, d<sub>BFS</sub>, d<sub>A*</sub>, d<sub>h</sub>, d<sub>b</sub>, d<sub>trace</sub>, d<sub>exp</sub></MathExpr>: definitions, proofs, metric tables, and trace rows. Each d-subscript names a document type used to justify a claim.</>],
-      ['S - Schema', 'Schema families that define the rule being tested: GridToGraph, BFSDepthOrder, AStarMinimumF, HeuristicAdmissibility, EffectiveBranchingFactor, PredictionCorrectness.'],
+      ['A - Artifacts', <><MathExpr>a<sub>i</sub> = (M<sub>i</sub>, G<sub>i</sub>, alg<sub>i</sub>, trace<sub>i</sub>)</MathExpr>: the visible maze, its mapped graph, the selected algorithm, and the run trace behind the board. <MathExpr>M<sub>i</sub>=(R,C,W,s,g)</MathExpr> records rows, columns, walls, start, and goal.</>],
+      ['D - Evidence', <>The evidence is generated while the learner uses the system: frontier snapshots, equation rows, heuristic-audit tables, branching metrics, prediction responses, and the exported run table. These records are the documents behind the visual claims.</>],
+      ['S - Schema', 'Schema dimensions name the question being asked: GridToGraph, BFSDepthOrder, AStarMinimumF, HeuristicAdmissibility, EffectiveBranchingFactor, and PredictionCorrectness. They decide which log fields matter for each claim.'],
     ],
   },
   {
@@ -145,11 +145,11 @@ const MANIFESTO_TABS = [
     label: 'Retrieval',
     title: <MathExpr>R : (A × S) → P(D)</MathExpr>,
     body:
-      'For each visual claim, the scanner retrieves only the documents relevant to the active schema dimension. This is the bridge from interface state to formal evidence. Here A is the artifact set, S is the schema dimension, D is the evidence document set, and P(D) is the set of possible evidence subsets.',
+      'Retrieval is what happens when the interface turns a visual moment into evidence. Hover overlays, the heuristic audit panel, the run summary, and the export table all read selected records from the same run trace instead of relying on a separate explanation.',
     items: [
-      ['AStarMinimumF', <>D<sub>rel</sub> contains the frontier <MathExpr>F<sub>t</sub></MathExpr>, candidate scores <MathExpr>g(n), h(n), f(n)</MathExpr>, and the selected node <MathExpr>n*<sub>t</sub></MathExpr>. Here <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t and <MathExpr>n*<sub>t</sub></MathExpr> is the chosen node at step t.</>],
-      ['EffectiveBranchingFactor', <>D<sub>rel</sub> contains <MathExpr>N</MathExpr>, <MathExpr>d</MathExpr>, and <MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr>. Here <MathExpr>N</MathExpr> is the expanded-state count and <MathExpr>d</MathExpr> is solution depth.</>],
-      ['PredictionCorrectness', <>D<sub>rel</sub> contains the learner choice, the valid candidate set, and the satisfied or violated rule. The valid set is the argmin frontier rule for BFS or A*.</>],
+      ['AStarMinimumF', <>The audit retrieves the frontier <MathExpr>F<sub>t</sub></MathExpr>, candidate scores <MathExpr>g(n), h(n), f(n)</MathExpr>, and selected node <MathExpr>n*<sub>t</sub></MathExpr>; those are exactly the rows shown in the A* Heuristic Audit table.</>],
+      ['EffectiveBranchingFactor', <>The formal ledger retrieves expanded states <MathExpr>N</MathExpr>, solution depth <MathExpr>d</MathExpr>, observed legal successors, and graph edges before solving <MathExpr>N = 1 + b* + (b*)<sup>2</sup> + ... + (b*)<sup>d</sup></MathExpr>.</>],
+      ['PredictionCorrectness', <>Quiz feedback retrieves the learner choice, the current frontier, and the valid next-node set. The same schema explains whether the answer matched BFS depth order or A* minimum <MathExpr>f(n)</MathExpr>.</>],
     ],
   },
   {
@@ -157,11 +157,11 @@ const MANIFESTO_TABS = [
     label: 'Verification',
     title: <MathExpr>d ⊨ p</MathExpr>,
     body:
-      'The thesis verification constraint accepts a claim p only when some retrieved document d entails it. Here p is a claim and d is an evidence document. The page therefore presents formal obligations, not decorative descriptions.',
+      'Verification is the final check: a UI statement is accepted only when the retrieved run document entails it. The result modal therefore works like an evidence receipt for the board, audit panels, and exported rows.',
     items: [
-      ['BFS claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>, where <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t and <MathExpr>n*<sub>t</sub></MathExpr> is the selected node.</>],
-      ['A* claim', <>Valid iff <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>, with equal f-values tie-broken by lower Manhattan <MathExpr>h(n)</MathExpr>. Here <MathExpr>F<sub>t</sub></MathExpr> is the frontier at step t.</>],
-      ['Learning claim', <>Valid iff the selected prediction belongs to the formal next-node set <MathExpr>N<sub>t</sub></MathExpr>, the argmin frontier rule at step t.</>],
+      ['BFS claim', <>The claim is valid when the selected node <MathExpr>n*<sub>t</sub></MathExpr> belongs to <MathExpr>argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>; the queue/frontier trace provides the evidence.</>],
+      ['A* claim', <>The claim is valid when <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>, with equal f-values resolved by lower Manhattan <MathExpr>h(n)</MathExpr>; the heuristic audit table exposes that check.</>],
+      ['Learning claim', <>The learning signal is valid as in-run evidence when the prediction log contains the prompt, learner response, valid candidate set, attempts, and response time. It supports rule fluency during the session, not a standalone causal learning claim.</>],
     ],
   },
 ];
@@ -271,10 +271,10 @@ function TruthScannerPage({
   averageTriesPerQuestion,
 }) {
   const [activeConceptId, setActiveConceptId] = useState('f-score');
-  const [activeManifestoId, setActiveManifestoId] = useState('knowledge-space');
+  const [activeGroundingId, setActiveGroundingId] = useState('knowledge-space');
   const activeConcept = conceptById[activeConceptId] || CONCEPTS[0];
-  const activeManifesto =
-    MANIFESTO_TABS.find((item) => item.id === activeManifestoId) || MANIFESTO_TABS[0];
+  const activeGrounding =
+    GROUNDING_TABS.find((item) => item.id === activeGroundingId) || GROUNDING_TABS[0];
 
   useEffect(() => {
     if (!initialConceptId || !conceptById[initialConceptId]) return;
@@ -318,10 +318,11 @@ function TruthScannerPage({
           <span className="landing-badge">Graph Search Auditor</span>
           <h1>Truth Scanner Formal Audit</h1>
           <p>
-            This page instantiates the thesis formalism: a maze artifact is mapped by <MathExpr>Φ</MathExpr>
-            into a graph <MathExpr>G=(V,E)</MathExpr>, every algorithmic claim is grounded in <MathExpr>K=(A,D,S)</MathExpr>, and
+            The visualizer turns each maze run into evidence: the board is mapped by <MathExpr>Φ</MathExpr>
+            into a graph <MathExpr>G=(V,E)</MathExpr>, the trace is organized as <MathExpr>K=(A,D,S)</MathExpr>, and
             expansion decisions are checked against BFS depth order or A*{' '}
-            <TruthTerm id="f-score" {...termProps}>f(n)=g(n)+h(n)</TruthTerm> minimization.
+            <TruthTerm id="f-score" {...termProps}>f(n)=g(n)+h(n)</TruthTerm> minimization. The same records feed the audit panels,
+            formal result modal, and exported run table.
           </p>
         </div>
         <div className="truth-actions">
@@ -377,26 +378,26 @@ function TruthScannerPage({
           <h2>Why The Visualizer Counts As Evidence</h2>
         </div>
         <div className="truth-manifesto-shell">
-          <div className="truth-manifesto-tabs" role="tablist" aria-label="Knowledge manifesto">
-            {MANIFESTO_TABS.map((tab) => (
+          <div className="truth-manifesto-tabs" role="tablist" aria-label="Schema-guided grounding model">
+            {GROUNDING_TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 role="tab"
-                aria-selected={activeManifesto.id === tab.id}
-                className={activeManifesto.id === tab.id ? 'active' : ''}
-                onClick={() => setActiveManifestoId(tab.id)}
+                aria-selected={activeGrounding.id === tab.id}
+                className={activeGrounding.id === tab.id ? 'active' : ''}
+                onClick={() => setActiveGroundingId(tab.id)}
               >
                 {tab.label}
               </button>
             ))}
           </div>
           <article className="truth-manifesto-panel" role="tabpanel">
-            <span>{activeManifesto.label}</span>
-            <h3>{activeManifesto.title}</h3>
-            <p>{activeManifesto.body}</p>
+            <span>{activeGrounding.label}</span>
+            <h3>{activeGrounding.title}</h3>
+            <p>{activeGrounding.body}</p>
             <div className="truth-manifesto-list">
-              {activeManifesto.items.map(([label, value]) => (
+              {activeGrounding.items.map(([label, value]) => (
                 <div key={label} className="truth-manifesto-item">
                   <strong>{label}</strong>
                   <p>{value}</p>
@@ -435,8 +436,9 @@ function TruthScannerPage({
             <h3>Measured Evidence</h3>
             <p>
               The trace logs frontier snapshots, selected nodes, equations, and neighbor
-              decisions. These are D evidence documents, so a UI claim is valid only when
-              the retrieved trace entails it.
+              decisions. These become the D evidence documents used by hover overlays, the A* audit panel,
+              the Formal Result Analysis modal, and the exported run table, so a UI claim is valid only
+              when the retrieved trace entails it.
             </p>
           </article>
         </div>

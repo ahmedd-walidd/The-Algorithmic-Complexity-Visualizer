@@ -13,6 +13,8 @@ export function astar(grid, startNode, endNode, options = {}) {
   const formalTraceByIndex = [];
   const heuristicAuditByIndex = [];
 
+  // h(n) is the O(1) Manhattan-distance heuristic h_M. Walls are handled only
+  // by successor validation below, not by precomputing wall-adjusted distances.
   startNode.distance = 0;
   startNode.heuristic = manhattanHeuristic(startNode, endNode);
   startNode.totalDistance = startNode.heuristic;
@@ -32,10 +34,16 @@ export function astar(grid, startNode, endNode, options = {}) {
       g: q.distance,
       h: q.heuristic,
       f: q.totalDistance,
+      insertionOrder: q.insertionOrder,
     }));
     const frontierMinF = Math.min(...currentFrontier.map((n) => n.f));
     const frontierMinHAmongMinF = Math.min(
       ...currentFrontier.filter((n) => n.f === frontierMinF).map((n) => n.h)
+    );
+    const frontierMinInsertionAmongMinFAndH = Math.min(
+      ...currentFrontier
+        .filter((n) => n.f === frontierMinF && n.h === frontierMinHAmongMinF)
+        .map((n) => n.insertionOrder)
     );
     const currentNode = openSet.pop();
 
@@ -62,12 +70,13 @@ export function astar(grid, startNode, endNode, options = {}) {
             f: currentNode.totalDistance,
           },
           selectedBecause:
-            'Chosen because it has minimum f on the frontier (tie-broken by minimum h).',
+            'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h, then insertion order).',
           frontierBeforeExpansion: currentFrontier,
           proofChecks: {
             frontierMinRuleHolds:
               currentNode.totalDistance === frontierMinF &&
-              currentNode.heuristic === frontierMinHAmongMinF,
+              currentNode.heuristic === frontierMinHAmongMinF &&
+              currentNode.insertionOrder === frontierMinInsertionAmongMinFAndH,
             equationHolds:
               currentNode.totalDistance ===
               currentNode.distance + currentNode.heuristic,
@@ -75,7 +84,7 @@ export function astar(grid, startNode, endNode, options = {}) {
           equation: `f(n)=g(n)+h(n)=${currentNode.distance}+${currentNode.heuristic}=${currentNode.totalDistance}`,
           attempts: attemptLogs,
           summary:
-            'Goal node expanded. Termination is correct because A* expands nodes in non-decreasing best-known f.',
+            'Goal node expanded. Termination is correct because Manhattan A* expands nodes in non-decreasing best-known f under the implemented priority rule.',
         });
       }
       break;
@@ -172,19 +181,20 @@ export function astar(grid, startNode, endNode, options = {}) {
           f: currentNode.totalDistance,
         },
         selectedBecause:
-          'Chosen because it has minimum f on the frontier (tie-broken by minimum h).',
+          'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h, then insertion order).',
         frontierBeforeExpansion: currentFrontier,
         proofChecks: {
           frontierMinRuleHolds:
             currentNode.totalDistance === frontierMinF &&
-            currentNode.heuristic === frontierMinHAmongMinF,
+            currentNode.heuristic === frontierMinHAmongMinF &&
+            currentNode.insertionOrder === frontierMinInsertionAmongMinFAndH,
           equationHolds:
             currentNode.totalDistance === currentNode.distance + currentNode.heuristic,
         },
         equation: `f(n)=g(n)+h(n)=${currentNode.distance}+${currentNode.heuristic}=${currentNode.totalDistance}`,
         attempts: attemptLogs,
         summary:
-          'All neighbors were tested. Accepted updates satisfy relaxation: g(new) = g(current) + 1 and f(new) = g(new) + h.',
+          'All neighbors were tested. Accepted updates satisfy relaxation: g(new) = g(current) + 1 and f(new) = g(new) + h_M(new).',
       });
     }
   }
@@ -192,7 +202,8 @@ export function astar(grid, startNode, endNode, options = {}) {
   if (!withTrace) return visitedNodesInOrder;
 
   // For quiz purposes: highlight the entire openSet as selectable.
-  // The correct options are those with the lowest f-score in the current openSet.
+  // Correct options follow the implementation priority: lowest f(n), then
+  // lower Manhattan h(n), then insertion order in the heap comparator.
   const predictionOptionsByIndex = formalTraceByIndex.map((entry) => {
     const frontier = (entry.frontierBeforeExpansion || []).map((n) => ({
       row: n.row,
@@ -204,9 +215,14 @@ export function astar(grid, startNode, endNode, options = {}) {
         .filter((n) => n.f === minF)
         .map((n) => n.h)
     );
+    const minInsertionOrder = Math.min(
+      ...(entry.frontierBeforeExpansion || [])
+        .filter((n) => n.f === minF && n.h === minH)
+        .map((n) => n.insertionOrder)
+    );
 
     const correctNodes = (entry.frontierBeforeExpansion || [])
-      .filter((n) => n.f === minF && n.h === minH)
+      .filter((n) => n.f === minF && n.h === minH && n.insertionOrder === minInsertionOrder)
       .map((n) => ({ row: n.row, col: n.col }));
 
     return {
@@ -219,7 +235,8 @@ export function astar(grid, startNode, endNode, options = {}) {
 }
 
 function compareAStarNodes(a, b) {
-  // Deterministic A* priority: minimum f(n), then lower Manhattan h(n), then insertion order.
+  // Deterministic A* priority: minimum f(n), then lower Manhattan h_M(n),
+  // then insertion order for stable repeatable traces.
   return (
     a.totalDistance - b.totalDistance ||
     a.heuristic - b.heuristic ||

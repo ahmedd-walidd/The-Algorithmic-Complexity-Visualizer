@@ -2,13 +2,14 @@ export function bfs(grid, startNode, endNode, options = {}) {
   const { withTrace = false } = options;
   const visitedNodesInOrder = [];
   const queue = [startNode];
+  let head = 0;
   const formalTraceByIndex = [];
 
   startNode.isVisited = true;
   startNode.distance = 0;
 
-  while (queue.length > 0) {
-    const currentFrontier = queue.map((q) => ({
+  while (head < queue.length) {
+    const currentFrontier = queue.slice(head).map((q) => ({
       row: q.row,
       col: q.col,
       g: q.distance,
@@ -16,7 +17,7 @@ export function bfs(grid, startNode, endNode, options = {}) {
       f: q.distance,
     }));
     const frontierMinG = Math.min(...currentFrontier.map((n) => n.g));
-    const currentNode = queue.shift();
+    const currentNode = queue[head++];
 
     if (currentNode.isWall) continue;
 

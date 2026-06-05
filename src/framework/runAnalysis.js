@@ -9,11 +9,11 @@ const ALGORITHM_META = {
   },
   astar: {
     displayName: 'A*',
-    scoringRule: 'f(n)=g(n)+h(n), h(n)=|row(n)-row(goal)|+|col(n)-col(goal)|',
+    scoringRule: 'f(n)=g(n)+h_M(n), h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)|',
     complexity:
-      'With a binary-heap priority queue, time is O((|V| + |E|) log |V|) and memory is O(|V|). On a 4-neighbor grid this is O(rows x cols log(rows x cols)).',
+      'With a binary-heap priority queue, time is O((|V| + |E|) log |V|) and memory is O(|V|). Manhattan h_M is evaluated in O(1) per node. On a 4-neighbor grid this is O(rows x cols log(rows x cols)).',
     optimality:
-      'A* is optimal here because Manhattan distance is admissible and consistent on 4-connected unit-cost grids.',
+      'A* is optimal on this 4-connected unit-cost grid because Manhattan distance is admissible and consistent. Walls affect successor generation, not h_M.',
   },
 };
 
@@ -142,7 +142,7 @@ function analyzeTraceBranching(formalTrace = []) {
   };
 }
 
-function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) {
+function buildGroundingUsage({ algorithm, grid, formalTrace, pathNodes, meta }) {
   const rows = grid.length;
   const cols = grid[0]?.length || 0;
   const totalCells = rows * cols;
@@ -163,10 +163,10 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
   const maxRetrievedDocumentsPerStep = formalTrace.length > 0 ? 3 : 0;
   const schemaDimensions =
     algorithm === 'astar'
-      ? [
+        ? [
           'next node choice',
           'distance from start g',
-          'Manhattan heuristic h',
+          'Manhattan heuristic h_M',
           'total priority f',
           'better path relaxation',
         ]
@@ -180,8 +180,8 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
   return {
     artifacts: {
       statement:
-        `A contained the ${rows}x${cols} grid, ${openCells} searchable cells, ${wallCells} wall cells, ` +
-        `the fixed start/goal pair, and the ${pathNodes.length || 0}-node result path.`,
+        `A is the run artifact the learner just saw: a ${rows}x${cols} grid, ${openCells} searchable cells, ` +
+        `${wallCells} wall cells, the fixed start/goal pair, and the ${pathNodes.length || 0}-node result path.`,
       cells: totalCells,
       openCells,
       wallCells,
@@ -189,9 +189,9 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
     },
     documents: {
       statement:
-        `D was produced during the run: ${formalTrace.length} formal expansion documents, ` +
+        `D is produced by the interface as the run unfolds: ${formalTrace.length} expansion trace documents, ` +
         `${formalTrace.length} scoring equations, and ${totalNeighborAudits} neighbor-audit records ` +
-        `(${acceptedNeighborAudits} accepted, ${rejectedNeighborAudits} rejected).`,
+        `(${acceptedNeighborAudits} accepted, ${rejectedNeighborAudits} rejected). These are the records behind the audit panels and export rows.`,
       traceDocuments: formalTrace.length,
       equations: formalTrace.length,
       neighborAudits: totalNeighborAudits,
@@ -200,21 +200,21 @@ function buildManifestoUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
     },
     schema: {
       statement:
-        `S interpreted each step using ${schemaDimensions.join(', ')}. This schema is why the visual trace can be compared to the formal ${meta.displayName} rule rather than treated as animation only.`,
+        `S reads each step through ${schemaDimensions.join(', ')}. That schema is why the visible trace can be checked against the ${meta.displayName} rule instead of treated as animation only.`,
       dimensions: schemaDimensions,
     },
     retrieval: {
       statement: finalTrace
-        ? `For the final expansion, R(A,S) retrieved Dᵣₑₗ = {frontier snapshot, equation, neighbor audit}. ` +
+        ? `For the final expansion, R(A,S) retrieved the frontier snapshot, equation, and neighbor audit used by the result modal. ` +
           `The last retrieved equation was ${finalTrace.equation}.`
-        : 'No Dᵣₑₗ was retrieved because this run produced no formal trace documents.',
+        : 'No evidence subset was retrieved because this run produced no formal trace documents.',
       documentsPerExpansion: maxRetrievedDocumentsPerStep,
       finalEquation: finalTrace?.equation || null,
       finalFrontierSize: finalTrace?.frontierBeforeExpansion?.length || 0,
     },
     verification: {
       statement:
-        `V checked whether the retrieved documents entailed the algorithm claims: ${equationChecks}/${formalTrace.length} equation checks held.`,
+        `V checked whether the retrieved records entailed the displayed algorithm claims: ${equationChecks}/${formalTrace.length} equation checks held.`,
       equationChecks,
       totalChecks: formalTrace.length,
     },
@@ -244,7 +244,7 @@ function buildFormalLedger({
   const ruleChecks = countRuleChecks(algorithm, formalTrace);
   const ruleFormula =
     algorithm === 'astar'
-      ? 'n*ₜ ∈ argminₙ∈Fₜ(g(n)+h(n))'
+      ? 'n*ₜ ∈ argminₙ∈Fₜ(g(n)+h_M(n))'
       : 'n*ₜ ∈ argminₙ∈Fₜ depth(n)';
   const ruleEvidence =
     formalTrace.length > 0
@@ -293,7 +293,7 @@ function buildFormalLedger({
       formula: finalTrace?.equation || 'No final equation recorded',
       evidence:
         formalTrace.length > 0
-          ? `${equationChecks}/${formalTrace.length} trace equations satisfied f(n)=g(n)+h(n).`
+          ? `${equationChecks}/${formalTrace.length} trace equations satisfied f(n)=g(n)+h_M(n).`
           : 'No equation trace was recorded.',
       status: formalTrace.length > 0 && equationChecks === formalTrace.length ? 'verified' : 'partial',
     },
@@ -301,10 +301,10 @@ function buildFormalLedger({
       label: 'Optimality Claim',
       formula:
         algorithm === 'astar'
-          ? 'Manhattan heuristic h(n)=|row(n)-row(goal)|+|col(n)-col(goal)| is admissible and consistent on this 4-connected unit-cost grid.'
+          ? 'Manhattan heuristic h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)| is admissible and consistent on this 4-connected unit-cost grid.'
           : 'Unit-cost BFS expands nodes in nondecreasing depth.',
       evidence: goalReached
-        ? `The returned path depth is d=${solutionDepth}; the claim is tied to the mapped graph and trace above.`
+        ? `The returned path depth is d=${solutionDepth}; walls are represented in successor generation, while h_M reads only row and column offsets.`
         : 'No returned path was available, so no optimal path claim is made for this run.',
       status: goalReached ? 'supported' : 'not-available',
     },
@@ -345,7 +345,7 @@ export function buildAlgorithmRunAnalysis({
       ? `The returned path pi contained ${pathNodes.length} nodes, so its edge depth was d=${solutionDepth}. `
       : 'No valid pi was returned because the target was not reached. ') +
     `${meta.displayName} expanded ${visitedCount} states; its final expanded state was ${finalExpandedCoordinate}.`;
-  const manifesto = buildManifestoUsage({
+  const grounding = buildGroundingUsage({
     algorithm,
     grid,
     formalTrace,
@@ -378,7 +378,7 @@ export function buildAlgorithmRunAnalysis({
     pathCoordinates,
     pathPreview: formatPathPreview(pathCoordinates),
     finalEquation: finalTrace?.equation || meta.scoringRule,
-    manifesto,
+    grounding,
     graph: {
       rows: grid.length,
       cols: grid[0]?.length || 0,

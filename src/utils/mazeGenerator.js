@@ -191,6 +191,7 @@ function ensurePathBetweenEndpoints(grid, rows, cols, start, end) {
 function hasPath(grid, rows, cols, sr, sc, tr, tc) {
   const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
   const queue = [[sr, sc]];
+  let head = 0;
   visited[sr][sc] = true;
 
   const dirs = [
@@ -200,8 +201,8 @@ function hasPath(grid, rows, cols, sr, sc, tr, tc) {
     [-1, 0],
   ];
 
-  while (queue.length) {
-    const [row, col] = queue.shift();
+  while (head < queue.length) {
+    const [row, col] = queue[head++];
     if (row === tr && col === tc) return true;
 
     for (const [dr, dc] of dirs) {

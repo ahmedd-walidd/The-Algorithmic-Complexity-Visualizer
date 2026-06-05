@@ -1,22 +1,22 @@
 # The Algorithmic Complexity Visualizer
 
-A Vite + React application for visualizing algorithmic complexity.
+Interactive Vite + React visualizer for comparing BFS and A* on 4-connected unit-cost grid mazes. The app records formal traces, frontier audits, branching metrics, prediction-pause data, and experiment outputs for the bachelor thesis evidence pipeline.
 
-## Getting Started
+A* uses the Manhattan-distance heuristic `h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)|`; walls are handled by the successor function, not by the heuristic.
 
-### Install dependencies
+## Install
 
 ```bash
 npm install
 ```
 
-### Start the development server
+## Development
 
 ```bash
 npm run dev
 ```
 
-### Build for production
+## Build
 
 ```bash
 npm run build
@@ -25,13 +25,25 @@ npm run build
 ## Validation
 
 ```bash
-node scripts/validateAlgorithms.js
 npm run validate:algorithms
 ```
 
-Validation checks BFS shortest-path behaviour, A* optimality against BFS, f=g+h trace equations, A* minimum-f selection, no-path handling, and effective branching factor sanity checks.
+This checks BFS shortest-path behavior, Manhattan A* optimality against BFS path length, `f=g+h_M` trace equations, A* minimum-`f`/lower-`h_M`/insertion-order selection, no-path handling, and effective branching factor sanity checks.
 
-### Preview production build
+## Experiments
+
+```bash
+npm run experiments
+```
+
+Experiment regeneration writes:
+
+- `docs/thesis-experiment-results.json`
+- `docs/thesis-experiment-results.md`
+
+The generated experiment report uses the current implementation of BFS and Manhattan A* with formal traces enabled.
+
+## Preview Production Build
 
 ```bash
 npm run preview

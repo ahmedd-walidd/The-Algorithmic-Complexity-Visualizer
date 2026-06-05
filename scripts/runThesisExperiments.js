@@ -365,6 +365,10 @@ function renderMarkdown(results) {
   );
   lines.push('');
   lines.push(
+    'In this implementation h is the Manhattan-distance heuristic h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)|. Walls are handled by graph successors, not by h(n), so each heuristic evaluation is O(1).'
+  );
+  lines.push('');
+  lines.push(
     'The tested grid sizes were Small (10x25), App default (20x50), and Large (30x75). Wall densities were 0%, 15%, 25%, and 35%. A direct start-goal corridor was kept open in every grid so the algorithms always had a valid path.'
   );
   lines.push('');
@@ -394,7 +398,7 @@ function renderMarkdown(results) {
   }
   lines.push('');
   lines.push(
-    'For each audited step, the selected candidate has the minimum frontier f(n)=g(n)+h(n). This verifies that the animated expansion agrees with the theoretical A* rule used in the teaching explanation.'
+    'For each audited step, the selected candidate has the minimum frontier f(n)=g(n)+h_M(n), with ties resolved by lower Manhattan h_M(n) and then insertion order. This verifies that the animated expansion agrees with the theoretical A* rule used in the teaching explanation.'
   );
   lines.push('');
   lines.push('## Algorithm Efficiency And Branching');
@@ -448,7 +452,7 @@ function renderMarkdown(results) {
     '- BFS behaves like exhaustive breadth expansion in the reachable state space. Its formal rule is v_i = argmin g(u), so the frontier grows by distance layers.'
   );
   lines.push(
-    '- A* behaves like informed search. Its formal rule is v_i = argmin f(u)=g(u)+h(u). In this implementation h is Manhattan distance, h(n)=|row(n)-row(goal)|+|col(n)-col(goal)|, so it ignores walls except through neighbor validation while preserving shortest path depth on 4-connected unit-cost grids.'
+    '- A* behaves like informed search. Its formal rule is v_i = argmin f(u)=g(u)+h_M(u). In this implementation h is the Manhattan-distance heuristic h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)|. Walls are handled by graph successors, not by h(n), while admissibility and consistency preserve shortest path depth on 4-connected unit-cost grids.'
   );
   lines.push(
     '- The b<sub>graph</sub> value estimates average graph branching from the grid topology, while b<sub>observed</sub> estimates the legal successor branching encountered during expansion. b<sub>effective</sub> estimates the branching factor that would generate the observed number of expanded states at the measured solution depth.'

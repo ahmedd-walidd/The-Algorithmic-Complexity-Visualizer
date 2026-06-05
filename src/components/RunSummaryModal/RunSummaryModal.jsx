@@ -259,18 +259,25 @@ function RunSummaryModal({
       )}
 
       <section className="run-summary-section">
-        <h3>Manifesto Framework In This Run</h3>
+        <h3>Schema-Guided Evidence In This Run</h3>
+        <p>
+          This is the runtime instance of <MathExpr>K=(A,D,S)</MathExpr>: the board artifact,
+          generated trace documents, and schema checks that connect the live UI to the exported result.
+        </p>
         <div className="manifesto-run-grid">
-          {analyses.map((analysis) => (
-            <article key={`${analysis.algorithm}-manifesto`} className="manifesto-run-card">
-              <h4>{analysis.displayName}</h4>
-              <p><strong>A - Artifacts:</strong> {analysis.manifesto.artifacts.statement}</p>
-              <p><strong>D - Documents:</strong> {analysis.manifesto.documents.statement}</p>
-              <p><strong>S - Schema:</strong> {analysis.manifesto.schema.statement}</p>
-              <p><strong>R - Retrieval:</strong> {analysis.manifesto.retrieval.statement}</p>
-              <p><strong>V - Verification:</strong> {analysis.manifesto.verification.statement}</p>
-            </article>
-          ))}
+          {analyses.map((analysis) => {
+            const grounding = analysis.grounding || analysis.manifesto;
+            return (
+              <article key={`${analysis.algorithm}-grounding`} className="manifesto-run-card">
+                <h4>{analysis.displayName}</h4>
+                <p><strong>A - Artifacts:</strong> {grounding.artifacts.statement}</p>
+                <p><strong>D - Documents:</strong> {grounding.documents.statement}</p>
+                <p><strong>S - Schema:</strong> {grounding.schema.statement}</p>
+                <p><strong>R - Retrieval:</strong> {grounding.retrieval.statement}</p>
+                <p><strong>V - Verification:</strong> {grounding.verification.statement}</p>
+              </article>
+            );
+          })}
         </div>
       </section>
 

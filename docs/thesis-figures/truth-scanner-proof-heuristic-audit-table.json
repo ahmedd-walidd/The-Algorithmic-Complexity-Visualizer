@@ -1,6 +1,6 @@
 {
   "heading": "A* HEURISTIC AUDIT",
-  "formula": "f(n) = g(n) + h(n)",
+  "formula": "f(n) = g(n) + h_M(n)",
   "summary": "Selected node: (10, 13)\n\nMinimum frontier f(n): 39\n\nDecision valid: Yes",
   "rows": [
     [

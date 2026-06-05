@@ -132,11 +132,21 @@ function assertAstarTraceIsSound(trace) {
     const minHAmongMinF = Math.min(
       ...frontier.filter((candidate) => candidate.f === minF).map((candidate) => candidate.h)
     );
+    const minInsertionAmongMinFAndH = Math.min(
+      ...frontier
+        .filter((candidate) => candidate.f === minF && candidate.h === minHAmongMinF)
+        .map((candidate) => candidate.insertionOrder)
+    );
     assert.equal(selectedFrontierEntry.f, minF, `A* selected node did not have minimum f at trace row ${index}`);
     assert.equal(
       selectedFrontierEntry.h,
       minHAmongMinF,
       `A* selected node did not satisfy lower-h tie-break at trace row ${index}`
+    );
+    assert.equal(
+      selectedFrontierEntry.insertionOrder,
+      minInsertionAmongMinFAndH,
+      `A* selected node did not satisfy insertion-order tie-break at trace row ${index}`
     );
   }
 }
@@ -205,7 +215,7 @@ function validateStraightCorridor() {
   assert.equal(astarRun.path.length, bfsRun.path.length, 'A* and BFS should return equal optimal path length');
   assert.ok(
     astarRun.result.visitedNodesInOrder.length <= bfsRun.result.visitedNodesInOrder.length,
-    'A* should not expand more nodes than BFS on the straight corridor with Manhattan heuristic'
+    'Straight-corridor sanity check: A* should not expand more nodes than BFS with Manhattan h'
   );
 
   assertBfsTraceIsSound(bfsRun.result.formalTraceByIndex);
@@ -314,7 +324,7 @@ function main() {
   validateNoPathCase();
   validateEffectiveBranchingFactor();
 
-  console.log('Algorithm validation passed: BFS, A*, trace equations, minimum-f audit, no-path handling, and effective branching factor are consistent.');
+  console.log('Algorithm validation passed: Manhattan A*, BFS shortest paths, f=g+h_M trace equations, minimum-f/lower-h/insertion-order audit, no-path handling, and effective branching factor are consistent.');
 }
 
 main();
