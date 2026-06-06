@@ -24,7 +24,7 @@ function HeuristicAuditPanel({
     return [...activeStep.candidates].sort((a, b) => {
       if (a.selected !== b.selected) return a.selected ? -1 : 1;
       if (a.isMinimumF !== b.isMinimumF) return a.isMinimumF ? -1 : 1;
-      return a.f - b.f || a.h - b.h || a.row - b.row || a.col - b.col;
+      return a.f - b.f || a.h - b.h || a.insertionOrder - b.insertionOrder || a.row - b.row || a.col - b.col;
     });
   }, [activeStep]);
 
@@ -76,7 +76,7 @@ function HeuristicAuditPanel({
             {activeStep.tieCount > 1 && (
               <p className="heuristic-audit-tie">
                 {activeStep.tieHandling || (
-                  <>Tie detected: {activeStep.tieCount} candidates share the minimum <MathExpr>f</MathExpr> value; lower Manhattan <MathExpr>h(n)</MathExpr> wins.</>
+                  <>Tie detected: {activeStep.tieCount} candidates share the minimum <MathExpr>f</MathExpr> value; lower Manhattan <MathExpr>h(n)</MathExpr>, then insertion order wins.</>
                 )}
               </p>
             )}
@@ -92,6 +92,8 @@ function HeuristicAuditPanel({
                   <th><MathExpr>f(n)</MathExpr></th>
                   <th>Minimum <MathExpr>f</MathExpr>?</th>
                   <th>Tie-break <MathExpr>h</MathExpr>?</th>
+                  <th>Insertion order</th>
+                  <th>Final tie-break?</th>
                   <th>Selected?</th>
                 </tr>
               </thead>
@@ -110,6 +112,8 @@ function HeuristicAuditPanel({
                     <td>{formatScore(candidate.f)}</td>
                     <td>{candidate.isMinimumF ? 'Yes' : 'No'}</td>
                     <td>{candidate.isTieBreakMinimum ? 'Yes' : 'No'}</td>
+                    <td>{formatScore(candidate.insertionOrder)}</td>
+                    <td>{candidate.isInsertionOrderMinimum ? 'Yes' : 'No'}</td>
                     <td>{candidate.selected ? 'Yes' : 'No'}</td>
                   </tr>
                 ))}

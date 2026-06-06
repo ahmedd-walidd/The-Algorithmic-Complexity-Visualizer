@@ -35,6 +35,8 @@ export function getActiveHoverComparison({ isRaceMode, isPaused, pausedCompariso
           ? {
               minF: quizState.ruleMeta.minF,
               minHAmongMinF: quizState.ruleMeta.minHAmongMinF,
+              minInsertionOrderAmongTiedCandidates:
+                quizState.ruleMeta.minInsertionOrderAmongTiedCandidates,
             }
           : {
               minG: quizState.ruleMeta.minG,
@@ -51,12 +53,16 @@ export function getHoveredNodeDecision(hoveredFrontierNode, activeHoverCompariso
   if (activeHoverComparison.algorithm === 'astar') {
     const minF = activeHoverComparison.minComparison?.minF;
     const minHAmongMinF = activeHoverComparison.minComparison?.minHAmongMinF;
+    const minInsertionOrderAmongTiedCandidates =
+      activeHoverComparison.minComparison?.minInsertionOrderAmongTiedCandidates;
     const hasMinF = hoveredFrontierNode.f === minF;
     const hasBestTieBreak = hoveredFrontierNode.h === minHAmongMinF;
+    const hasBestInsertionOrder =
+      hoveredFrontierNode.insertionOrder === minInsertionOrderAmongTiedCandidates;
 
-    if (hasMinF && hasBestTieBreak) {
+    if (hasMinF && hasBestTieBreak && hasBestInsertionOrder) {
       return {
-        text: 'Would be chosen next: minimum frontier f and minimum tie-break h.',
+        text: 'Would be chosen next: minimum frontier f, lower Manhattan h, and earliest insertion order.',
         tone: 'chosen',
       };
     }
@@ -64,6 +70,13 @@ export function getHoveredNodeDecision(hoveredFrontierNode, activeHoverCompariso
     if (!hasMinF) {
       return {
         text: `Not chosen yet: f=${hoveredFrontierNode.f} is larger than frontier minimum f=${minF}.`,
+        tone: 'not-chosen',
+      };
+    }
+
+    if (hasBestTieBreak) {
+      return {
+        text: `Not chosen yet: ties on f and h, but insertion order ${hoveredFrontierNode.insertionOrder} is later than ${minInsertionOrderAmongTiedCandidates}.`,
         tone: 'not-chosen',
       };
     }
@@ -201,9 +214,26 @@ export function getNextTraversalComparison({ isRaceMode, run, formalTrace }) {
     const minHAmongMinF = Math.min(
       ...frontier.filter((node) => node.f === minF).map((node) => node.h)
     );
+    const minInsertionOrderAmongTiedCandidates = Math.min(
+      ...frontier
+        .filter((node) => node.f === minF && node.h === minHAmongMinF)
+        .map((node) => node.insertionOrder)
+    );
     const candidateNodes = frontier
-      .filter((node) => node.f === minF && node.h === minHAmongMinF)
-      .map((node) => ({ row: node.row, col: node.col, g: node.g, h: node.h, f: node.f }));
+      .filter(
+        (node) =>
+          node.f === minF &&
+          node.h === minHAmongMinF &&
+          node.insertionOrder === minInsertionOrderAmongTiedCandidates
+      )
+      .map((node) => ({
+        row: node.row,
+        col: node.col,
+        g: node.g,
+        h: node.h,
+        f: node.f,
+        insertionOrder: node.insertionOrder,
+      }));
 
     return {
       stepIndex: nextIndex,
@@ -215,11 +245,13 @@ export function getNextTraversalComparison({ isRaceMode, run, formalTrace }) {
         g: node.g,
         h: node.h,
         f: node.f,
+        insertionOrder: node.insertionOrder,
       })),
       candidateNodes,
       minComparison: {
         minF,
         minHAmongMinF,
+        minInsertionOrderAmongTiedCandidates,
       },
       algorithm: nextTrace.algorithm,
     };

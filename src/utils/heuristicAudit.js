@@ -7,9 +7,12 @@
  * @property {number} g
  * @property {number} h
  * @property {number} f
+ * @property {number} insertionOrder
  * @property {boolean} selected
  * @property {boolean} isMinimumF
  * @property {boolean} isTieBreakMinimum
+ * @property {boolean} isInsertionOrderMinimum
+ * @property {boolean} isPriorityWinner
  */
 
 /**
@@ -20,6 +23,7 @@
  * @property {number} selectedCol
  * @property {number} minimumF
  * @property {number} minimumHAmongMinimumF
+ * @property {number} minimumInsertionOrderAmongTiedCandidates
  * @property {boolean} decisionValid
  * @property {number} tieCount
  * @property {string} tieHandling
@@ -44,6 +48,8 @@ const getScores = (node) => {
   return { g, h, f };
 };
 
+const getInsertionOrder = (node) => firstFiniteNumber(node?.insertionOrder, node?.order);
+
 /**
  * Audits one A* decision without mutating the frontier or selected node.
  *
@@ -58,7 +64,7 @@ export function auditAStarDecision(step, frontier, selectedNode) {
     const col = getCol(node);
     const { g, h, f } = getScores(node);
 
-    return { row, col, g, h, f };
+    return { row, col, g, h, f, insertionOrder: getInsertionOrder(node) };
   });
 
   const minimumF = values.length > 0 ? Math.min(...values.map((value) => value.f)) : Infinity;
@@ -66,12 +72,25 @@ export function auditAStarDecision(step, frontier, selectedNode) {
     values.length > 0
       ? Math.min(...values.filter((value) => value.f === minimumF).map((value) => value.h))
       : Infinity;
+  const minimumInsertionOrderAmongTiedCandidates =
+    values.length > 0
+      ? Math.min(
+          ...values
+            .filter((value) => value.f === minimumF && value.h === minimumHAmongMinimumF)
+            .map((value) => value.insertionOrder)
+        )
+      : Infinity;
   const selectedRow = getRow(selectedNode);
   const selectedCol = getCol(selectedNode);
+  const selectedInsertionOrder = getInsertionOrder(selectedNode);
   const selectedKey = `${selectedRow},${selectedCol}`;
 
   const candidates = values.map((value) => {
     const key = `${value.row},${value.col}`;
+    const isMinimumF = value.f === minimumF;
+    const isTieBreakMinimum = isMinimumF && value.h === minimumHAmongMinimumF;
+    const isInsertionOrderMinimum =
+      isTieBreakMinimum && value.insertionOrder === minimumInsertionOrderAmongTiedCandidates;
 
     return {
       step,
@@ -81,9 +100,12 @@ export function auditAStarDecision(step, frontier, selectedNode) {
       g: value.g,
       h: value.h,
       f: value.f,
-      selected: key === selectedKey,
-      isMinimumF: value.f === minimumF,
-      isTieBreakMinimum: value.f === minimumF && value.h === minimumHAmongMinimumF,
+      insertionOrder: value.insertionOrder,
+      selected: key === selectedKey && value.insertionOrder === selectedInsertionOrder,
+      isMinimumF,
+      isTieBreakMinimum,
+      isInsertionOrderMinimum,
+      isPriorityWinner: isInsertionOrderMinimum,
     };
   });
 
@@ -98,11 +120,12 @@ export function auditAStarDecision(step, frontier, selectedNode) {
     selectedCol,
     minimumF,
     minimumHAmongMinimumF,
-    decisionValid: Boolean(selectedCandidate && selectedCandidate.isTieBreakMinimum),
+    minimumInsertionOrderAmongTiedCandidates,
+    decisionValid: Boolean(selectedCandidate && selectedCandidate.isPriorityWinner),
     tieCount,
     tieHandling:
       tieCount > 1
-        ? 'Tie on f(n); selected node must have the lowest Manhattan h(n) among minimum-f candidates.'
+        ? 'Tie on f(n); selected node must have the lowest Manhattan h(n), then the earliest insertion order among still-tied candidates.'
         : 'No f(n) tie; selected node only needs the minimum f(n).',
     candidates,
   };

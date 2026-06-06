@@ -60,6 +60,9 @@ function NodeHoverPanel({ hoveredFrontierNode, activeHoverComparison, hoveredNod
             <p>
               <strong>Tie-break check:</strong> hovered h={hoveredFrontierNode.h}, minimum h among minimum-f nodes={activeHoverComparison.minComparison?.minHAmongMinF ?? 'N/A'}
             </p>
+            <p>
+              <strong>Final tie-break:</strong> hovered insertion order={hoveredFrontierNode.insertionOrder ?? 'N/A'}, earliest tied insertion order={activeHoverComparison.minComparison?.minInsertionOrderAmongTiedCandidates ?? 'N/A'}
+            </p>
           </div>
         ) : (
           <div className="trace-proof-list">

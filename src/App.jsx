@@ -117,7 +117,7 @@ function rankPredictionDistractors(distractors, traceStep, shouldTargetHeuristic
   if (traceStep?.algorithm === 'astar') {
     return [...distractors].sort((a, b) => {
       if (shouldTargetHeuristicTrap && a.h !== b.h) return a.h - b.h;
-      return a.f - b.f || a.h - b.h || a.g - b.g;
+      return a.f - b.f || a.h - b.h || a.insertionOrder - b.insertionOrder || a.g - b.g;
     });
   }
 
@@ -1363,7 +1363,18 @@ function App() {
                   const minHAmongMinF = Math.min(
                     ...frontier.filter((n) => n.f === minF).map((n) => n.h)
                   );
-                  return { algorithm: 'astar', minF, minHAmongMinF, minHOverall };
+                  const minInsertionOrderAmongTiedCandidates = Math.min(
+                    ...frontier
+                      .filter((n) => n.f === minF && n.h === minHAmongMinF)
+                      .map((n) => n.insertionOrder)
+                  );
+                  return {
+                    algorithm: 'astar',
+                    minF,
+                    minHAmongMinF,
+                    minHOverall,
+                    minInsertionOrderAmongTiedCandidates,
+                  };
                 }
 
                 const minG = Math.min(...frontier.map((n) => n.g));

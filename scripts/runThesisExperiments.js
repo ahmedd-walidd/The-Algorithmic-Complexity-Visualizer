@@ -373,6 +373,10 @@ function renderMarkdown(results) {
   );
   lines.push('');
   lines.push(
+    'Because the experiment preserves a direct start-goal corridor, Manhattan A* often follows that corridor with near-minimal expansion. These results measure controlled corridor-preserving topologies, not arbitrary maze difficulty.'
+  );
+  lines.push('');
+  lines.push(
     'Important learning note: the automated experiment measures search behavior and the number of prediction-pause opportunities. It does not prove human learning improvement by itself. To claim learning gain, use the app logs with a participant pre/post or control-group study.'
   );
   lines.push('');

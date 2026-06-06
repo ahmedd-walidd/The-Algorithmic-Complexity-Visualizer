@@ -165,6 +165,16 @@ function assertAstarAuditIsSound(auditSteps) {
       step.minimumHAmongMinimumF,
       `A* audit selected candidate violates lower-h tie-break at row ${index}`
     );
+    assert.equal(
+      selected.insertionOrder,
+      step.minimumInsertionOrderAmongTiedCandidates,
+      `A* audit selected candidate violates insertion-order tie-break at row ${index}`
+    );
+    assert.equal(
+      selected.isPriorityWinner,
+      true,
+      `A* audit selected candidate is not marked as the final priority winner at row ${index}`
+    );
   }
 }
 

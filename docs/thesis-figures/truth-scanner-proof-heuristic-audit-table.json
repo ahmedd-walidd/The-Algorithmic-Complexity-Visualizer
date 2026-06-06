@@ -1,6 +1,7 @@
 {
   "heading": "A* HEURISTIC AUDIT",
   "formula": "f(n) = g(n) + h_M(n)",
+  "tieBreakRule": "minimum f(n), then lower Manhattan h_M(n), then insertion order",
   "summary": "Selected node: (10, 13)\n\nMinimum frontier f(n): 39\n\nDecision valid: Yes",
   "rows": [
     [
