@@ -76,3 +76,46 @@
   background-color: #29b875;
   border-color: #6ee7b7;
 }
+
+:root[data-theme='light'] .control-button {
+  background-color: #f7fafc;
+  border-color: #9aa8b8;
+  color: #172033;
+  text-shadow: none;
+  box-shadow: 0 2px 0 rgba(84, 110, 139, 0.18);
+}
+
+:root[data-theme='light'] .control-button:hover:not(:disabled) {
+  background-color: #e4f1ff;
+  border-color: #3f77ad;
+}
+
+:root[data-theme='light'] .control-button--default.is-active,
+:root[data-theme='light'] .control-button--default[aria-pressed='true'] {
+  background-color: #f6c945;
+  border-color: #b7791f;
+  color: #172033;
+}
+
+:root[data-theme='light'] .control-button--warning.is-active,
+:root[data-theme='light'] .control-button--warning[aria-pressed='true'] {
+  background-color: #3bbf75;
+  border-color: #147a4a;
+  color: #102033;
+}
+
+:root[data-theme='light'] .control-button--primary {
+  background-color: #d73955;
+  border-color: #9f2337;
+  color: #ffffff;
+}
+
+:root[data-theme='light'] .control-button--primary:hover:not(:disabled) {
+  background-color: #c52f49;
+}
+
+:root[data-theme='light'] .control-button--success {
+  background-color: #147a4a;
+  border-color: #0f5e38;
+  color: #ffffff;
+}

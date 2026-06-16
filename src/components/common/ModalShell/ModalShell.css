@@ -77,3 +77,35 @@
 .modal-shell-body {
   padding: 1rem 1.1rem 1.1rem;
 }
+
+:root[data-theme='light'] .modal-shell-overlay {
+  background: rgba(226, 235, 245, 0.7);
+}
+
+:root[data-theme='light'] .modal-shell {
+  background: #ffffff;
+  border-color: #c89118;
+  color: #172033;
+  box-shadow: 0 28px 60px rgba(41, 63, 88, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+:root[data-theme='light'] .modal-shell-header,
+:root[data-theme='light'] .modal-shell-footer {
+  border-color: rgba(84, 110, 139, 0.22);
+}
+
+:root[data-theme='light'] .modal-shell-kicker {
+  color: #8a5a08;
+}
+
+:root[data-theme='light'] .modal-shell-close-btn {
+  background: #f7fafc;
+  border-color: #9aa8b8;
+  color: #172033;
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .modal-shell-close-btn:hover {
+  background: #e4f1ff;
+  border-color: #3f77ad;
+}

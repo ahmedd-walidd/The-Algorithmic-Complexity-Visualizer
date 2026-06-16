@@ -59,6 +59,7 @@ const DEFAULT_SETTINGS = {
   gridRows: DEFAULT_GRID_CONFIG.rows,
   gridCols: DEFAULT_GRID_CONFIG.cols,
 };
+const THEME_STORAGE_KEY = 'algorithmic-complexity-visualizer-theme';
 
 const GRID_PRESETS = [
   { id: 'small', label: 'Small', rows: 10, cols: 25 },
@@ -184,11 +185,16 @@ function recordAdaptivePredictionResult(state, result) {
 
 function App() {
   // -- state --
+  const getInitialTheme = () => {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return storedTheme === 'light' ? 'light' : 'dark';
+  };
   const getInitialRoute = () => {
     const path = window.location.pathname;
     if (path === '/visualizer' || path === '/truth-scanner') return path;
     return '/';
   };
+  const [theme, setTheme] = useState(getInitialTheme);
   const [currentRoute, setCurrentRoute] = useState(getInitialRoute);
   const [gridConfig, setGridConfig] = useState(DEFAULT_GRID_CONFIG);
   const [gridEndpoints, setGridEndpoints] = useState(() =>
@@ -270,6 +276,17 @@ function App() {
   const pausedPhaseRef = useRef('idle');
 
   const simulationPhaseDisplay = getSimulationPhaseDisplay(simulationPhase);
+  const isLightMode = theme === 'light';
+
+  const toggleTheme = useCallback(() => {
+    setTheme((currentTheme) => (currentTheme === 'light' ? 'dark' : 'light'));
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   const navigateTo = useCallback((path, options = {}) => {
     const normalizedPath =
@@ -1916,6 +1933,8 @@ function App() {
         landingDraft={landingDraft}
         setLandingDraft={setLandingDraft}
         onStart={handleLandingStart}
+        isLightMode={isLightMode}
+        onThemeToggle={toggleTheme}
       />
     );
   }
@@ -1929,6 +1948,8 @@ function App() {
         onNavigate={navigateTo}
         onOpenFormalAnalysis={openFormalAnalysis}
         onReturnToFormalAnalysis={returnToFormalAnalysis}
+        isLightMode={isLightMode}
+        onThemeToggle={toggleTheme}
       />
     );
   }
@@ -1981,6 +2002,8 @@ function App() {
         settingsDraft={settingsDraft}
         simulationPhase={simulationPhase}
         simulationPhaseDisplay={simulationPhaseDisplay}
+        isLightMode={isLightMode}
+        onThemeToggle={toggleTheme}
       />
 
       <VisualizerWorkspace

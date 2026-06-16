@@ -1,4 +1,5 @@
 import MathExpr from '../common/MathExpr/MathExpr';
+import { Moon, Sun } from 'lucide-react';
 
 const TUTORIAL_STEPS = [
   {
@@ -52,7 +53,15 @@ const TUTORIAL_STEPS = [
   },
 ];
 
-function LandingScreen({ gridPresets, gridLimits, landingDraft, setLandingDraft, onStart }) {
+function LandingScreen({
+  gridPresets,
+  gridLimits,
+  landingDraft,
+  setLandingDraft,
+  onStart,
+  isLightMode,
+  onThemeToggle,
+}) {
   const activePreset = gridPresets.find((preset) => preset.id === landingDraft.gridPreset);
   const previewRows = landingDraft.gridRows === '' ? '-' : landingDraft.gridRows;
   const previewCols = landingDraft.gridCols === '' ? '-' : landingDraft.gridCols;
@@ -72,7 +81,25 @@ function LandingScreen({ gridPresets, gridLimits, landingDraft, setLandingDraft,
   return (
     <main className="landing-screen">
       <div className="landing-hero">
-        <div className="landing-badge">Algorithmic Complexity Visualizer</div>
+        <div className="landing-hero-topline">
+          <div className="landing-badge">Algorithmic Complexity Visualizer</div>
+          {onThemeToggle && (
+            <button
+              type="button"
+              className="landing-theme-toggle"
+              onClick={onThemeToggle}
+              aria-pressed={Boolean(isLightMode)}
+              aria-label={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+              title={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {isLightMode ? (
+                <Moon className="landing-theme-toggle-icon" aria-hidden="true" />
+              ) : (
+                <Sun className="landing-theme-toggle-icon" aria-hidden="true" />
+              )}
+            </button>
+          )}
+        </div>
         <h1>
           Architectural Audit Console
           <span>Map, measure, and verify informed search.</span>

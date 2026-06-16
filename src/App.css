@@ -4193,3 +4193,423 @@
   margin-top: 0.55rem !important;
   color: #e6f0ff !important;
 }
+
+.landing-hero-topline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.landing-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 8px;
+  background: #172033;
+  color: #facc15;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+}
+
+.landing-theme-toggle:hover,
+.landing-theme-toggle:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(250, 204, 21, 0.7);
+  outline: none;
+}
+
+.landing-theme-toggle-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+:root[data-theme='light'] {
+  --theme-page: #f4f7fb;
+  --theme-page-alt: #eaf0f7;
+  --theme-panel: #ffffff;
+  --theme-panel-soft: #f8fafc;
+  --theme-panel-tint: #edf6ff;
+  --theme-elevated: #ffffff;
+  --theme-border: rgba(84, 110, 139, 0.28);
+  --theme-border-strong: rgba(37, 99, 148, 0.42);
+  --theme-ink: #172033;
+  --theme-muted: #526276;
+  --theme-soft-ink: #334155;
+  --theme-code: #102033;
+  --theme-code-bg: #eaf1f8;
+  --theme-accent: #b7791f;
+  --theme-accent-strong: #8a5a08;
+  --theme-blue: #2563a5;
+  --theme-green: #147a4a;
+  --theme-red: #b4233e;
+  --theme-shadow: 0 12px 28px rgba(41, 63, 88, 0.16);
+  --theme-inner-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme='light'] .app,
+:root[data-theme='light'] .landing-screen,
+:root[data-theme='light'] .truth-page {
+  background: var(--theme-page);
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .landing-screen,
+:root[data-theme='light'] .truth-page,
+:root[data-theme='light'] .app {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(234, 240, 247, 0.58));
+}
+
+:root[data-theme='light'] .landing-hero h1,
+:root[data-theme='light'] .landing-hero h1 span,
+:root[data-theme='light'] .landing-panel-header h2,
+:root[data-theme='light'] .landing-tutorial-copy h2,
+:root[data-theme='light'] .landing-tutorial-caption h3,
+:root[data-theme='light'] .truth-hero h1,
+:root[data-theme='light'] .truth-section-heading h2,
+:root[data-theme='light'] .truth-metric strong,
+:root[data-theme='light'] .truth-proof-card strong,
+:root[data-theme='light'] .truth-concept-panel h3,
+:root[data-theme='light'] .truth-manifesto-panel h3,
+:root[data-theme='light'] .verification-list-heading,
+:root[data-theme='light'] .knowledge-function-row strong,
+:root[data-theme='light'] .run-summary-title,
+:root[data-theme='light'] .run-summary-metric strong,
+:root[data-theme='light'] .modal-shell h2,
+:root[data-theme='light'] .settings-modal h2,
+:root[data-theme='light'] .legend-modal h2,
+:root[data-theme='light'] .top-navigation-score-item strong {
+  color: var(--theme-ink);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .landing-hero p,
+:root[data-theme='light'] .landing-panel-header p,
+:root[data-theme='light'] .landing-highlights p,
+:root[data-theme='light'] .landing-preset-card,
+:root[data-theme='light'] .landing-preset-card span,
+:root[data-theme='light'] .landing-grid-inputs label,
+:root[data-theme='light'] .landing-grid-preview span,
+:root[data-theme='light'] .landing-toggle,
+:root[data-theme='light'] .landing-tutorial-tab,
+:root[data-theme='light'] .landing-tutorial-caption p,
+:root[data-theme='light'] .truth-hero p,
+:root[data-theme='light'] .truth-proof-card p,
+:root[data-theme='light'] .truth-algorithm-card p,
+:root[data-theme='light'] .truth-empty,
+:root[data-theme='light'] .truth-trace-panel p,
+:root[data-theme='light'] .truth-verdict p,
+:root[data-theme='light'] .truth-axiom-card p,
+:root[data-theme='light'] .truth-concept-panel p,
+:root[data-theme='light'] .truth-manifesto-panel > p,
+:root[data-theme='light'] .truth-manifesto-item p,
+:root[data-theme='light'] .trace-card p,
+:root[data-theme='light'] .trace-proof-list p,
+:root[data-theme='light'] .side-panel,
+:root[data-theme='light'] .quiz-body p,
+:root[data-theme='light'] .settings-modal,
+:root[data-theme='light'] .legend-modal,
+:root[data-theme='light'] .modal-shell {
+  color: var(--theme-soft-ink);
+}
+
+:root[data-theme='light'] .landing-badge,
+:root[data-theme='light'] .landing-highlights h3,
+:root[data-theme='light'] .landing-tutorial-tab span,
+:root[data-theme='light'] .landing-tutorial-caption span,
+:root[data-theme='light'] .truth-section-heading span,
+:root[data-theme='light'] .truth-proof-card h3,
+:root[data-theme='light'] .truth-algorithm-card h3,
+:root[data-theme='light'] .truth-metric span,
+:root[data-theme='light'] .truth-verdict span,
+:root[data-theme='light'] .truth-axiom-card span,
+:root[data-theme='light'] .truth-concept-panel span,
+:root[data-theme='light'] .truth-manifesto-panel > span,
+:root[data-theme='light'] .truth-term,
+:root[data-theme='light'] .scanner-panel-header span,
+:root[data-theme='light'] .trace-node-banner span,
+:root[data-theme='light'] .trace-score-chip span,
+:root[data-theme='light'] .top-navigation-score-item span,
+:root[data-theme='light'] .side-panel-title span {
+  color: var(--theme-accent-strong);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .landing-panel,
+:root[data-theme='light'] .landing-highlights article,
+:root[data-theme='light'] .landing-preset-card,
+:root[data-theme='light'] .landing-tutorial-tab,
+:root[data-theme='light'] .landing-tutorial-stage,
+:root[data-theme='light'] .truth-section,
+:root[data-theme='light'] .truth-metric,
+:root[data-theme='light'] .truth-proof-card,
+:root[data-theme='light'] .truth-algorithm-card,
+:root[data-theme='light'] .truth-trace-panel,
+:root[data-theme='light'] .truth-verdict,
+:root[data-theme='light'] .truth-axiom-card,
+:root[data-theme='light'] .truth-concept-panel,
+:root[data-theme='light'] .truth-manifesto-panel,
+:root[data-theme='light'] .truth-manifesto-item,
+:root[data-theme='light'] .truth-table-wrap,
+:root[data-theme='light'] .top-navigation,
+:root[data-theme='light'] .top-navigation-score,
+:root[data-theme='light'] .top-navigation-score-item,
+:root[data-theme='light'] .side-panel,
+:root[data-theme='light'] .trace-card,
+:root[data-theme='light'] .hover-decision-card,
+:root[data-theme='light'] .trace-score-chip,
+:root[data-theme='light'] .hover-preview-path,
+:root[data-theme='light'] .verification-item,
+:root[data-theme='light'] .stat-card-mini,
+:root[data-theme='light'] .heuristic-audit-summary,
+:root[data-theme='light'] .formal-trace-panel,
+:root[data-theme='light'] .scanner-panel,
+:root[data-theme='light'] .equation-link,
+:root[data-theme='light'] .rewind-node-prompt,
+:root[data-theme='light'] .board-tip,
+:root[data-theme='light'] .quiz-overlay,
+:root[data-theme='light'] .modal-shell,
+:root[data-theme='light'] .settings-modal,
+:root[data-theme='light'] .legend-modal {
+  background: var(--theme-panel);
+  border-color: var(--theme-border);
+  box-shadow: var(--theme-shadow), var(--theme-inner-shadow);
+}
+
+:root[data-theme='light'] .landing-preset-card.active,
+:root[data-theme='light'] .landing-tutorial-tab.active,
+:root[data-theme='light'] .landing-tutorial-tab:hover,
+:root[data-theme='light'] .landing-tutorial-tab:focus-visible,
+:root[data-theme='light'] .truth-section-accent,
+:root[data-theme='light'] .truth-equation-card,
+:root[data-theme='light'] .truth-manifesto-tabs button.active,
+:root[data-theme='light'] .truth-manifesto-tabs button:hover,
+:root[data-theme='light'] .truth-concept-tabs button.active,
+:root[data-theme='light'] .truth-concept-tabs button:hover,
+:root[data-theme='light'] .trace-node-banner,
+:root[data-theme='light'] .trace-equation-block,
+:root[data-theme='light'] .heuristic-audit-timeline-note,
+:root[data-theme='light'] .retrieval-box,
+:root[data-theme='light'] .active-step-proof,
+:root[data-theme='light'] .paused-comparison,
+:root[data-theme='light'] .proof-check-item,
+:root[data-theme='light'] .attempt-item {
+  background: var(--theme-panel-tint);
+  border-color: var(--theme-border-strong);
+}
+
+:root[data-theme='light'] .landing-preset-card,
+:root[data-theme='light'] .landing-tutorial-tab {
+  background: #ffffff !important;
+  border-color: var(--theme-border);
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .landing-tutorial-tab strong,
+:root[data-theme='light'] .landing-preset-card strong {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .landing-tutorial-tab span,
+:root[data-theme='light'] .landing-preset-card span {
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .landing-preset-card.active,
+:root[data-theme='light'] .landing-preset-card:hover,
+:root[data-theme='light'] .landing-preset-card:focus-visible,
+:root[data-theme='light'] .landing-tutorial-tab.active,
+:root[data-theme='light'] .landing-tutorial-tab:hover,
+:root[data-theme='light'] .landing-tutorial-tab:focus-visible {
+  background: #e8f2ff !important;
+  border-color: rgba(183, 121, 31, 0.62);
+}
+
+:root[data-theme='light'] .landing-grid-preview {
+  background: #172033;
+  border-color: rgba(183, 121, 31, 0.52);
+  color: #f6c945;
+}
+
+:root[data-theme='light'] .landing-grid-preview span {
+  color: #9fb9e8;
+}
+
+:root[data-theme='light'] .landing-theme-toggle,
+:root[data-theme='light'] .top-navigation-action,
+:root[data-theme='light'] .top-navigation-tab,
+:root[data-theme='light'] .truth-secondary-btn,
+:root[data-theme='light'] .truth-manifesto-tabs button,
+:root[data-theme='light'] .truth-concept-tabs button,
+:root[data-theme='light'] .side-panel-tab,
+:root[data-theme='light'] .side-panel-close-btn,
+:root[data-theme='light'] .side-panel-open-btn,
+:root[data-theme='light'] .modal-shell-close-btn,
+:root[data-theme='light'] .landing-secondary-btn {
+  background: var(--theme-panel-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-ink);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .landing-theme-toggle:hover,
+:root[data-theme='light'] .top-navigation-action:hover,
+:root[data-theme='light'] .top-navigation-action:focus-visible,
+:root[data-theme='light'] .top-navigation-tab:hover,
+:root[data-theme='light'] .top-navigation-tab:focus-visible,
+:root[data-theme='light'] .top-navigation-tab.active,
+:root[data-theme='light'] .side-panel-tab.active,
+:root[data-theme='light'] .side-panel-tab:hover,
+:root[data-theme='light'] .side-panel-close-btn:hover,
+:root[data-theme='light'] .side-panel-open-btn:hover {
+  background: #e1efff;
+  border-color: rgba(37, 99, 148, 0.56);
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .landing-start-btn,
+:root[data-theme='light'] .truth-primary-btn,
+:root[data-theme='light'] .quiz-continue-btn.btn-question {
+  background: #f6c945;
+  border-color: #b7791f;
+  color: #172033;
+  box-shadow: 0 8px 18px rgba(183, 121, 31, 0.18);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] input,
+:root[data-theme='light'] select,
+:root[data-theme='light'] textarea,
+:root[data-theme='light'] .landing-grid-inputs input,
+:root[data-theme='light'] .settings-grid-size select,
+:root[data-theme='light'] .settings-grid-size input {
+  background: #ffffff;
+  border-color: var(--theme-border);
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] code,
+:root[data-theme='light'] pre,
+:root[data-theme='light'] .truth-equation-card code,
+:root[data-theme='light'] .truth-algorithm-card code,
+:root[data-theme='light'] .truth-axiom-card code,
+:root[data-theme='light'] .truth-inline-equation,
+:root[data-theme='light'] .truth-concept-panel pre,
+:root[data-theme='light'] .knowledge-function-row code,
+:root[data-theme='light'] .retrieval-box code,
+:root[data-theme='light'] .heuristic-audit-header code {
+  background: var(--theme-code-bg);
+  border-color: var(--theme-border);
+  color: var(--theme-code);
+}
+
+:root[data-theme='light'] .truth-audit-table,
+:root[data-theme='light'] .heuristic-audit-table,
+:root[data-theme='light'] .truth-audit-table td,
+:root[data-theme='light'] .heuristic-audit-table td {
+  color: var(--theme-soft-ink);
+}
+
+:root[data-theme='light'] .truth-audit-table th,
+:root[data-theme='light'] .heuristic-audit-table th {
+  background: #e9f1f9;
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .truth-audit-table caption,
+:root[data-theme='light'] .trace-hotkey,
+:root[data-theme='light'] .trace-node-banner strong,
+:root[data-theme='light'] .trace-summary,
+:root[data-theme='light'] .hover-preview-path-badge {
+  color: var(--theme-accent-strong) !important;
+}
+
+:root[data-theme='light'] .truth-audit-table tr.selected td,
+:root[data-theme='light'] .heuristic-audit-table tr.minimum-f td {
+  background: rgba(20, 122, 74, 0.12);
+  color: #0f5e38;
+}
+
+:root[data-theme='light'] .heuristic-audit-table tr.selected td {
+  background: rgba(183, 121, 31, 0.16);
+  color: #6c4708;
+}
+
+:root[data-theme='light'] .quiz-overlay-question {
+  border-color: rgba(37, 99, 148, 0.4);
+}
+
+:root[data-theme='light'] .quiz-overlay-correct {
+  border-color: rgba(20, 122, 74, 0.45);
+}
+
+:root[data-theme='light'] .quiz-overlay-incorrect {
+  border-color: rgba(180, 35, 62, 0.42);
+}
+
+:root[data-theme='light'] .node-gamified-popup,
+:root[data-theme='light'] .equation-link {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .landing-badge {
+  color: #f6c945;
+}
+
+:root[data-theme='light'] .legend-item {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .truth-verdict strong,
+:root[data-theme='light'] .truth-manifesto-item strong {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .truth-metric small {
+  color: var(--theme-soft-ink);
+}
+
+:root[data-theme='light'] .settings-card,
+:root[data-theme='light'] .settings-card-muted {
+  background: #f8fafc !important;
+  border-color: var(--theme-border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+}
+
+:root[data-theme='light'] .settings-card h3,
+:root[data-theme='light'] .settings-option-card strong,
+:root[data-theme='light'] .settings-slider-value strong {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .settings-card p,
+:root[data-theme='light'] .settings-grid-size label,
+:root[data-theme='light'] .settings-option-card small,
+:root[data-theme='light'] .settings-slider-value span {
+  color: var(--theme-muted);
+}
+
+:root[data-theme='light'] .settings-option-card,
+:root[data-theme='light'] .settings-toggle-row,
+:root[data-theme='light'] .settings-slider-value {
+  background: #ffffff !important;
+  border-color: var(--theme-border);
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .settings-close-btn,
+:root[data-theme='light'] .settings-secondary-btn {
+  background: #f7fafc;
+  border-color: #9aa8b8;
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .settings-primary-btn {
+  background: #d73955;
+  border-color: #9f2337;
+  color: #ffffff;
+}

@@ -269,6 +269,8 @@ function TruthScannerPage({
   scorePopup,
   averageTryAccuracy,
   averageTriesPerQuestion,
+  isLightMode,
+  onThemeToggle,
 }) {
   const [activeConceptId, setActiveConceptId] = useState('f-score');
   const [activeGroundingId, setActiveGroundingId] = useState('knowledge-space');
@@ -311,6 +313,8 @@ function TruthScannerPage({
         scorePopup={scorePopup}
         averageTryAccuracy={averageTryAccuracy}
         averageTriesPerQuestion={averageTriesPerQuestion}
+        isLightMode={isLightMode}
+        onThemeToggle={onThemeToggle}
       />
 
       <section className="truth-hero">

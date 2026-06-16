@@ -38,3 +38,9 @@
   line-height: 1;
 }
 
+:root[data-theme='light'] .control-panel {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: #c89118;
+  box-shadow: 0 12px 28px rgba(41, 63, 88, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+

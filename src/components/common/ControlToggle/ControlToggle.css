@@ -16,3 +16,12 @@
   width: 1.2rem;
   height: 1.2rem;
 }
+
+:root[data-theme='light'] .control-toggle {
+  color: #6c4708;
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .control-toggle input {
+  accent-color: #d73955;
+}

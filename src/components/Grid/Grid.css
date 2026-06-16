@@ -140,3 +140,27 @@
     transform: rotate(360deg);
   }
 }
+
+:root[data-theme='light'] .grid-container-floating {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(37, 99, 148, 0.34);
+  box-shadow: 0 18px 44px rgba(41, 63, 88, 0.18);
+}
+
+:root[data-theme='light'] .axis-corner,
+:root[data-theme='light'] .axis-label,
+:root[data-theme='light'] .grid-label {
+  color: #8a5a08;
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .grid {
+  background-color: rgba(255, 255, 255, 0.94);
+  border-color: #c89118;
+  box-shadow: 0 12px 28px rgba(41, 63, 88, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme='light'] .grid-loading-overlay {
+  background: rgba(244, 247, 251, 0.78);
+  color: #6c4708;
+}

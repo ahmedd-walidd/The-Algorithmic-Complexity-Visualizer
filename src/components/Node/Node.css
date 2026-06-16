@@ -295,3 +295,35 @@
     box-shadow: 0 0 0 rgba(250, 204, 21, 0.2);
   }
 }
+
+:root[data-theme='light'] .node {
+  background-color: #f9fbfe;
+  border-color: rgba(84, 110, 139, 0.26);
+}
+
+:root[data-theme='light'] .node-start {
+  background-color: #f6c945;
+  border-color: #b7791f;
+}
+
+:root[data-theme='light'] .node-end {
+  background-color: #d73955;
+  border-color: #9f2337;
+}
+
+:root[data-theme='light'] .node-wall {
+  background-color: #64748b;
+  border-color: #475569;
+}
+
+:root[data-theme='light'] .node-hover-preview-path {
+  background-color: rgba(37, 99, 148, 0.22);
+}
+
+:root[data-theme='light'] .node-prediction-wrong {
+  background-color: rgba(180, 35, 62, 0.16);
+}
+
+:root[data-theme='light'] .node-prediction-correct {
+  background-color: rgba(20, 122, 74, 0.2);
+}

@@ -49,6 +49,8 @@ function AppChrome({
   simulationPhase,
   simulationPhaseDisplay,
   isPaused,
+  isLightMode,
+  onThemeToggle,
 }) {
   return (
     <>
@@ -66,6 +68,8 @@ function AppChrome({
         scorePopup={scorePopup}
         averageTriesPerQuestion={averageTriesPerQuestion}
         averageTryAccuracy={averageTryAccuracy}
+        isLightMode={isLightMode}
+        onThemeToggle={onThemeToggle}
       />
 
       <ControlPanel

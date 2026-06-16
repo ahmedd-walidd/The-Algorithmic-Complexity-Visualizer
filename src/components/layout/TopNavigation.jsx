@@ -1,4 +1,4 @@
-import { HelpCircle, Settings } from 'lucide-react';
+import { HelpCircle, Moon, Settings, Sun } from 'lucide-react';
 
 function TopNavigation({
   currentRoute,
@@ -14,6 +14,8 @@ function TopNavigation({
   scorePopup,
   averageTriesPerQuestion,
   averageTryAccuracy,
+  isLightMode,
+  onThemeToggle,
 }) {
   const showScore = Boolean(isQuizMode && scoreState);
   const hasAnswers = Boolean(scoreState?.questionsAnswered > 0);
@@ -80,8 +82,24 @@ function TopNavigation({
         </button>
       </div>
 
-      {(onOpenLegend || onOpenSettings) && (
+      {(onOpenLegend || onOpenSettings || onThemeToggle) && (
         <div className="top-navigation-group top-navigation-group-actions">
+          {onThemeToggle && (
+            <button
+              type="button"
+              className="top-navigation-action top-navigation-theme-toggle"
+              onClick={onThemeToggle}
+              aria-pressed={Boolean(isLightMode)}
+              aria-label={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+              title={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {isLightMode ? (
+                <Moon className="top-navigation-action-icon" aria-hidden="true" />
+              ) : (
+                <Sun className="top-navigation-action-icon" aria-hidden="true" />
+              )}
+            </button>
+          )}
           {onOpenLegend && (
             <button
               type="button"
