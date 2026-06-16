@@ -10,6 +10,7 @@
     "validate:algorithms": "node scripts/validateAlgorithms.js",
     "experiments": "node scripts/runThesisExperiments.js",
     "figures": "node scripts/captureThesisFigures.mjs",
+    "figures:implementation": "node scripts/captureImplementationFigures.mjs",
     "figures:branching50": "node scripts/captureBranching50x50.mjs",
     "preview": "vite preview"
   },

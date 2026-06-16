@@ -13,9 +13,10 @@ async function clickByText(page, text, tag = 'button') {
   await page.evaluate(
     ({ text, tag }) => {
       const nodes = [...document.querySelectorAll(tag)];
-      const target = nodes.find((node) =>
-        node.textContent.replace(/\s+/g, ' ').trim().includes(text),
-      );
+      const normalize = (node) => node.textContent.replace(/\s+/g, ' ').trim();
+      const target =
+        nodes.find((node) => normalize(node) === text) ||
+        nodes.find((node) => normalize(node).includes(text));
       if (!target) throw new Error(`Could not find ${tag} containing text: ${text}`);
       target.click();
     },
@@ -96,19 +97,19 @@ async function run() {
     await open50x50Lab(page);
     await setFastMode(page);
 
-    await screenshot(page, 'figure-3-4-1-50x50-grid-model.png');
+    await screenshot(page, '50x50-grid-model.png');
 
     await clickByText(page, 'Race Mode', 'label');
     await delay(300);
-    await screenshot(page, 'figure-3-4-2-50x50-race-start.png');
+    await screenshot(page, '50x50-race-start.png');
 
-    await clickByText(page, 'Start Race');
+    await clickByText(page, 'Start Race!');
     await waitForDone(page);
-    await screenshot(page, 'figure-3-4-3-50x50-bfs-astar-result.png');
+    await screenshot(page, '50x50-bfs-astar-result.png');
 
-    await clickByText(page, 'View Formal Result Analysis');
+    await clickByText(page, 'Formal Results Analysis');
     await page.waitForSelector('.modal-shell--run-summary');
-    await screenshot(page, 'figure-3-4-4-50x50-branching-analysis.png');
+    await screenshot(page, '50x50-branching-analysis.png');
   } finally {
     await browser.close();
   }
