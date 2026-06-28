@@ -16,8 +16,10 @@ function ControlPanel({
   onObstacleModeToggle,
   onVisualize,
   isVisualizing,
+  isPaused = false,
   isMazeGenerating = false,
   isTimelineControlDisabled,
+  onTogglePause,
   onRewind,
   onFastForward,
 }) {
@@ -100,6 +102,17 @@ function ControlPanel({
             &raquo;
           </ControlButton>
         </div>
+        {!isRaceMode && (
+          <ControlButton
+            className="control-button--pause"
+            onClick={onTogglePause}
+            disabled={!isVisualizing || isMazeGenerating}
+            aria-label={isPaused ? 'Resume simulation' : 'Pause simulation'}
+            title={isPaused ? 'Resume simulation' : 'Pause simulation'}
+          >
+            {isPaused ? 'Resume' : 'Pause'}
+          </ControlButton>
+        )}
         <ControlButton variant="primary" onClick={onVisualize} disabled={isBusy}>
           {isMazeGenerating
             ? 'Generating...'
@@ -107,9 +120,15 @@ function ControlPanel({
             ? 'Visualizing…'
             : isRaceMode
               ? 'Start Race!'
-                : 'Visualize!'}
+              : 'Visualize!'}
         </ControlButton>
       </div>
+
+      {!isRaceMode && (
+        <p className="pause-disclaimer">
+          Pause with Space or the Pause button.
+        </p>
+      )}
     </div>
   );
 }

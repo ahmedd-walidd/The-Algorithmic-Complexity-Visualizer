@@ -100,9 +100,13 @@ function assertBfsTraceIsSound(trace) {
     assert.equal(step.proofChecks?.equationHolds, true, `BFS equation check failed at trace row ${index}`);
     assert.equal(step.proofChecks?.queueDepthRuleHolds, true, `BFS queue-depth rule failed at trace row ${index}`);
     assert.equal(
+      step.expandedScores.g,
       step.expandedScores.f,
-      step.expandedScores.g + step.expandedScores.h,
-      `BFS f=g+h mismatch at trace row ${index}`
+      `BFS shared score should mirror depth g at trace row ${index}`
+    );
+    assert.ok(
+      step.equation?.startsWith('depth(n)=g(n)='),
+      `BFS equation should describe depth g(n), not f=g+h, at trace row ${index}`
     );
   }
 }
@@ -334,7 +338,7 @@ function main() {
   validateNoPathCase();
   validateEffectiveBranchingFactor();
 
-  console.log('Algorithm validation passed: Manhattan A*, BFS shortest paths, f=g+h_M trace equations, minimum-f/lower-h/insertion-order audit, no-path handling, and effective branching factor are consistent.');
+  console.log('Algorithm validation passed: BFS shortest-depth traces, Manhattan A* f=g+h_M traces, minimum-f/lower-h/insertion-order audit, no-path handling, and effective branching factor are consistent.');
 }
 
 main();

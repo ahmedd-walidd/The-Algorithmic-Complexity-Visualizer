@@ -1,4 +1,4 @@
-function TraceEquation({ scores, animate = false }) {
+function TraceEquation({ scores, algorithm = 'astar', animate = false }) {
   if (!scores) return null;
 
   const tokenClass = (variant) =>
@@ -7,6 +7,18 @@ function TraceEquation({ scores, animate = false }) {
     `trace-equation-value trace-equation-value-${variant}${animate ? ' trace-equation-animate' : ''}`;
   const equalsClass = `trace-equation-equals${animate ? ' trace-equation-animate' : ''}`;
   const delayStyle = (delay) => (animate ? { '--delay': `${delay}ms` } : undefined);
+
+  if (algorithm === 'bfs') {
+    return (
+      <span className={`trace-equation${animate ? ' trace-equation-animated' : ''}`}>
+        <span className={tokenClass('neutral')} style={delayStyle(0)}>depth(n)</span>
+        <span className={equalsClass} style={delayStyle(80)}>=</span>
+        <span className={tokenClass('path')} style={delayStyle(140)}>g(n)</span>
+        <span className={equalsClass} style={delayStyle(200)}>=</span>
+        <span className={valueClass('path')} style={delayStyle(260)}>{scores.g}</span>
+      </span>
+    );
+  }
 
   return (
     <span className={`trace-equation${animate ? ' trace-equation-animated' : ''}`}>

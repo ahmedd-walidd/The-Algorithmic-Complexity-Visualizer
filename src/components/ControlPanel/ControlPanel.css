@@ -38,9 +38,26 @@
   line-height: 1;
 }
 
+.control-button--pause {
+  min-width: 4.8rem;
+}
+
+.pause-disclaimer {
+  flex-basis: 100%;
+  margin: -0.2rem 0 0;
+  color: rgba(226, 232, 240, 0.76);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
 :root[data-theme='light'] .control-panel {
   background: rgba(255, 255, 255, 0.94);
   border-color: #c89118;
   box-shadow: 0 12px 28px rgba(41, 63, 88, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme='light'] .pause-disclaimer {
+  color: rgba(55, 65, 81, 0.72);
 }
 

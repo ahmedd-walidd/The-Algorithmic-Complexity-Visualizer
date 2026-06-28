@@ -27,7 +27,7 @@ const TUTORIAL_STEPS = [
     id: 'labels',
     eyebrow: '4. Decode',
     title: 'Read g(n) and h(n) node labels',
-    body: <>The yellow <MathExpr>g(n)</MathExpr> labels show path cost from the start. The blue <MathExpr>h(n)</MathExpr> labels show estimated remaining cost to the goal. A* chooses by <MathExpr>f(n)=g(n)+h(n)</MathExpr>.</>,
+    body: <>The yellow <MathExpr>g(n)</MathExpr> labels show path cost from the start. BFS follows depth <MathExpr>g(n)</MathExpr>; A* adds the blue heuristic <MathExpr>h(n)</MathExpr> and chooses by <MathExpr>f(n)=g(n)+h(n)</MathExpr>.</>,
     image: '/tutorial/trace-inspection.png',
   },
   {
@@ -111,7 +111,7 @@ function LandingScreen({
         <div className="landing-highlights">
           <article>
             <h3>Formal Trace</h3>
-            <p>Every expansion is logged with <MathExpr>f(n)=g(n)+h(n)</MathExpr> proofs.</p>
+            <p>Every expansion is logged with algorithm-specific proofs: BFS depth <MathExpr>g(n)</MathExpr> and A* <MathExpr>f(n)=g(n)+h(n)</MathExpr>.</p>
           </article>
           <article>
             <h3>Branching Factor</h3>

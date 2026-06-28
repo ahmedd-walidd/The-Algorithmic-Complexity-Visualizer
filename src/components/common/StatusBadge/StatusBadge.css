@@ -1,11 +1,12 @@
 .status-badge {
   width: min(1024px, 95vw);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin: 0 0 0.75rem;
-  padding: 0.7rem 1rem;
+  padding: 0.72rem 1rem;
   border: 1px solid rgba(102, 153, 255, 0.24);
   border-radius: 12px;
   background: rgba(15, 30, 48, 0.96);
@@ -14,7 +15,19 @@
   user-select: none;
 }
 
+.status-badge-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'label value'
+    'description description';
+  gap: 0.16rem 0.7rem;
+  align-items: baseline;
+}
+
 .status-badge-label {
+  grid-area: label;
   color: #facc15;
   font-size: 0.76rem;
   font-weight: 800;
@@ -23,10 +36,71 @@
 }
 
 .status-badge-value {
+  grid-area: value;
   color: #e8f1ff;
   font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: 0.02em;
+}
+
+.status-badge-description {
+  grid-area: description;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.status-badge-key {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  max-width: 470px;
+}
+
+.status-badge-key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 28px;
+  padding: 0.24rem 0.46rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.32);
+  color: #dbeafe;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-badge-swatch {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.status-badge-swatch-visited {
+  background: rgba(0, 176, 255, 0.75);
+  border-color: rgba(0, 176, 255, 0.9);
+}
+
+.status-badge-swatch-path {
+  background: #ffd700;
+  border-color: #ffd700;
+}
+
+.status-badge-swatch-candidate {
+  background: #7dd3fc;
+  border-color: #7dd3fc;
+  box-shadow: 0 0 8px rgba(125, 211, 252, 0.62);
+}
+
+.status-badge-swatch-next {
+  background: #facc15;
+  border-color: #facc15;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.62);
 }
 
 .status-badge-idle {
@@ -54,15 +128,41 @@
 }
 
 :root[data-theme='light'] .status-badge {
-  background: rgba(255, 255, 255, 0.94);
-  border-color: rgba(84, 110, 139, 0.28);
+  background: #ffffff;
+  border-color: rgba(51, 65, 85, 0.34);
   box-shadow: 0 10px 20px rgba(41, 63, 88, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 
+:root[data-theme='light'] .status-badge-idle {
+  opacity: 1;
+}
+
 :root[data-theme='light'] .status-badge-label {
-  color: #8a5a08;
+  color: #7c4a03;
 }
 
 :root[data-theme='light'] .status-badge-value {
-  color: #172033;
+  color: #0f172a;
+}
+
+:root[data-theme='light'] .status-badge-description {
+  color: #334155;
+}
+
+:root[data-theme='light'] .status-badge-key-item {
+  background: #eef6ff;
+  border-color: rgba(51, 65, 85, 0.24);
+  color: #0f172a;
+}
+
+@media (max-width: 760px) {
+  .status-badge {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .status-badge-key {
+    justify-content: flex-start;
+    max-width: none;
+  }
 }

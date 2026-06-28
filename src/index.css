@@ -3,8 +3,8 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #1a1a2e;
+  color: #172033;
+  background-color: #f4f7fb;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -17,6 +17,12 @@
   background-color: #f4f7fb;
 }
 
+:root[data-theme='dark'] {
+  color: #eef2ff;
+  background-color: #0b1220;
+}
+
+html,
 body {
   margin: 0;
   min-width: 320px;

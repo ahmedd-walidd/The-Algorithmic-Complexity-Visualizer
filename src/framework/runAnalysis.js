@@ -1,7 +1,7 @@
 const ALGORITHM_META = {
   bfs: {
     displayName: 'BFS',
-    scoringRule: 'h(n)=0, f(n)=g(n)',
+    scoringRule: 'depth(n)=g(n)',
     complexity:
       'Time O(|V| + |E|), memory O(|V|). On a 4-neighbor grid, |V| ≤ rows×cols and |E| ≤ 2×rows×cols − rows − cols, so BFS is O(rows×cols).',
     optimality:
@@ -160,6 +160,7 @@ function buildGroundingUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
   );
   const rejectedNeighborAudits = totalNeighborAudits - acceptedNeighborAudits;
   const equationChecks = formalTrace.filter((step) => step.proofChecks?.equationHolds).length;
+  const equationKind = algorithm === 'astar' ? 'scoring equations' : 'depth equations';
   const maxRetrievedDocumentsPerStep = formalTrace.length > 0 ? 3 : 0;
   const schemaDimensions =
     algorithm === 'astar'
@@ -190,7 +191,7 @@ function buildGroundingUsage({ algorithm, grid, formalTrace, pathNodes, meta }) 
     documents: {
       statement:
         `D is produced by the interface as the run unfolds: ${formalTrace.length} expansion trace documents, ` +
-        `${formalTrace.length} scoring equations, and ${totalNeighborAudits} neighbor-audit records ` +
+        `${formalTrace.length} ${equationKind}, and ${totalNeighborAudits} neighbor-audit records ` +
         `(${acceptedNeighborAudits} accepted, ${rejectedNeighborAudits} rejected). These are the records behind the audit panels and export rows.`,
       traceDocuments: formalTrace.length,
       equations: formalTrace.length,
@@ -293,7 +294,9 @@ function buildFormalLedger({
       formula: finalTrace?.equation || 'No final equation recorded',
       evidence:
         formalTrace.length > 0
-          ? `${equationChecks}/${formalTrace.length} trace equations satisfied f(n)=g(n)+h_M(n).`
+          ? `${equationChecks}/${formalTrace.length} trace equations satisfied ${
+              algorithm === 'astar' ? 'f(n)=g(n)+h_M(n)' : 'depth(n)=g(n)'
+            }.`
           : 'No equation trace was recorded.',
       status: formalTrace.length > 0 && equationChecks === formalTrace.length ? 'verified' : 'partial',
     },
@@ -410,7 +413,6 @@ function summarizeQuestionWindow(records) {
     count: records.length,
     accuracy: average(records.map((record) => record.accuracy)),
     attempts: average(records.map((record) => record.attempts)),
-    responseSeconds: average(records.map((record) => record.responseSeconds)),
   };
 }
 
@@ -436,16 +438,12 @@ function buildLearningAnalysis(scoreState, quizPromptInterval, isQuizMode) {
     totalScore: scoreState?.totalScore || 0,
     bestStreak: scoreState?.bestStreak || 0,
     perfectAnswers: scoreState?.perfectAnswers || 0,
-    averageSpeedBonus:
-      answered > 0 ? (scoreState?.totalSpeedBonus || 0) / answered : 0,
     averageFrontierBonus:
       answered > 0 ? (scoreState?.totalFrontierBonus || 0) / answered : 0,
     averageAccuracy:
       answered > 0 ? (scoreState?.totalAccuracyScore || 0) / answered : 0,
     averageAttempts:
       answered > 0 ? (scoreState?.totalAttempts || 0) / answered : 0,
-    averageResponseSeconds:
-      answered > 0 ? (scoreState?.totalResponseTime || 0) / answered : 0,
     firstHalf,
     secondHalf,
     accuracyDelta,
@@ -453,7 +451,7 @@ function buildLearningAnalysis(scoreState, quizPromptInterval, isQuizMode) {
     interpretation:
       answered === 0
         ? 'No prediction-pause response data was collected in this run.'
-        : 'Prediction pauses measured active recall: higher accuracy, fewer attempts, and lower response time are evidence of better rule fluency during the run.',
+        : 'Prediction pauses measured active recall: higher accuracy and fewer attempts are evidence of better rule fluency during the run.',
   };
 }
 

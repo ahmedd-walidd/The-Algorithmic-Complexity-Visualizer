@@ -28,7 +28,7 @@ npm run build
 npm run validate:algorithms
 ```
 
-This checks BFS shortest-path behavior, Manhattan A* optimality against BFS path length, `f=g+h_M` trace equations, A* minimum-`f`/lower-`h_M`/insertion-order selection, no-path handling, and effective branching factor sanity checks.
+This checks BFS shortest-path behavior and depth traces, Manhattan A* optimality against BFS path length, A* `f=g+h_M` trace equations, A* minimum-`f`/lower-`h_M`/insertion-order selection, no-path handling, and effective branching factor sanity checks.
 
 ## Experiments
 

@@ -65,7 +65,10 @@ function SidePanel({
             </div>
 
             <div className="trace-equation-block">
-              {renderTraceEquation(currentTrace.expandedScores, { animate: true })}
+              {renderTraceEquation(currentTrace.expandedScores, {
+                algorithm: currentTrace.algorithm,
+                animate: true,
+              })}
             </div>
 
             <div className="trace-proof-list">

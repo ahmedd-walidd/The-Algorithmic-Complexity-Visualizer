@@ -25,8 +25,22 @@ export function clearPreviewPathHighlight() {
       'node-hover-preview-backward'
     );
     delete el.dataset.forwardLabel;
+    delete el.dataset.forwardCompactLabel;
     delete el.dataset.backwardLabel;
+    delete el.dataset.backwardCompactLabel;
   });
+}
+
+function setPreviewScoreLabel(el, kind, labelValue) {
+  const numericLabel = String(labelValue);
+
+  if (kind === 'forward') {
+    el.dataset.forwardLabel = numericLabel;
+    el.dataset.forwardCompactLabel = numericLabel;
+  } else {
+    el.dataset.backwardLabel = numericLabel;
+    el.dataset.backwardCompactLabel = numericLabel;
+  }
 }
 
 export function applyNextChoiceHighlight(nodes, prefix = '') {
@@ -89,9 +103,9 @@ export function applyPreviewPathHighlight(nodes, options = {}) {
     })();
 
     if (isForward) {
-      el.dataset.forwardLabel = String(labelValue);
+      setPreviewScoreLabel(el, 'forward', labelValue);
     } else {
-      el.dataset.backwardLabel = String(labelValue);
+      setPreviewScoreLabel(el, 'backward', labelValue);
     }
   });
 }

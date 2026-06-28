@@ -23,7 +23,6 @@ import {
   buildCorrectPredictionMessage,
   buildWrongPredictionMessage,
   calculateQuestionScore,
-  getPredictionTimeLimitSeconds,
 } from './utils/predictionFeedback';
 import {
   getActiveHoverComparison,
@@ -74,8 +73,6 @@ const INITIAL_SCORE_STATE = {
   correctAnswers: 0,
   totalAttempts: 0,
   totalAccuracyScore: 0,
-  totalResponseTime: 0,
-  totalSpeedBonus: 0,
   totalFrontierBonus: 0,
   currentStreak: 0,
   bestStreak: 0,
@@ -84,102 +81,17 @@ const INITIAL_SCORE_STATE = {
   questionHistory: [],
   lastQuestionScore: 0,
   lastAccuracy: 0,
-  lastResponseTime: 0,
   lastAttempts: 0,
 };
 
-const INITIAL_ADAPTIVE_PREDICTION_STATE = {
-  difficulty: 'medium',
-  recent: [],
-  repeatedHeuristicMistakes: 0,
-};
-
-const PREDICTION_DIFFICULTY_META = {
-  easy: { label: 'Easy', maxDistractors: 1 },
-  medium: { label: 'Medium', maxDistractors: 3 },
-  hard: { label: 'Hard', maxDistractors: Infinity },
-};
-
-function nodeKey(node) {
-  return `${node.row}-${node.col}`;
-}
-
-function getAdaptivePredictionDifficulty(state) {
-  const recent = state.recent || [];
-  const lastThree = recent.slice(-3);
-
-  if ((state.repeatedHeuristicMistakes || 0) >= 2) return 'hard';
-  if (lastThree.length >= 3 && lastThree.every((entry) => entry.correct)) return 'hard';
-  if (recent.slice(-2).length >= 2 && recent.slice(-2).every((entry) => !entry.correct)) return 'easy';
-  return state.difficulty || 'medium';
-}
-
-function rankPredictionDistractors(distractors, traceStep, shouldTargetHeuristicTrap) {
-  if (traceStep?.algorithm === 'astar') {
-    return [...distractors].sort((a, b) => {
-      if (shouldTargetHeuristicTrap && a.h !== b.h) return a.h - b.h;
-      return a.f - b.f || a.h - b.h || a.insertionOrder - b.insertionOrder || a.g - b.g;
-    });
-  }
-
-  return [...distractors].sort((a, b) => a.g - b.g);
-}
-
-function buildAdaptivePredictionPrompt(option, traceStep, adaptiveState) {
-  const frontier = traceStep?.frontierBeforeExpansion || [];
+function buildPredictionPrompt(option) {
   const selectable = option?.selectable || [];
   const correct = option?.correct || [];
   if (selectable.length === 0 || correct.length === 0) return null;
 
-  const difficulty = getAdaptivePredictionDifficulty(adaptiveState);
-  const correctKeys = new Set(correct.map(nodeKey));
-  const byKey = new Map(frontier.map((node) => [nodeKey(node), node]));
-  const selectableWithScores = selectable.map((node) => byKey.get(nodeKey(node)) || node);
-  const correctWithScores = selectableWithScores.filter((node) => correctKeys.has(nodeKey(node)));
-  const distractors = selectableWithScores.filter((node) => !correctKeys.has(nodeKey(node)));
-  const shouldTargetHeuristicTrap =
-    traceStep?.algorithm === 'astar' && (adaptiveState.repeatedHeuristicMistakes || 0) >= 2;
-  const rankedDistractors = rankPredictionDistractors(
-    distractors,
-    traceStep,
-    shouldTargetHeuristicTrap
-  );
-  const maxDistractors = PREDICTION_DIFFICULTY_META[difficulty]?.maxDistractors ?? 3;
-  const chosenDistractors = rankedDistractors.slice(0, maxDistractors);
-  const adaptedSelectable = [...correctWithScores, ...chosenDistractors]
-    .map(({ row, col }) => ({ row, col }));
-
   return {
-    selectable: adaptedSelectable.length > 0 ? adaptedSelectable : selectable,
+    selectable,
     correct,
-    difficulty,
-    adaptationReason: shouldTargetHeuristicTrap
-      ? 'A* heuristic trap: compare f(n), not h(n) alone.'
-      : difficulty === 'easy'
-        ? 'Support round after recent misses.'
-        : difficulty === 'hard'
-          ? 'Challenge round after a stable streak.'
-          : 'Balanced round.',
-  };
-}
-
-function recordAdaptivePredictionResult(state, result) {
-  const nextRecent = [...(state.recent || []), result].slice(-5);
-  const repeatedHeuristicMistakes = result.heuristicMistake
-    ? (state.repeatedHeuristicMistakes || 0) + 1
-    : result.correct
-      ? 0
-      : state.repeatedHeuristicMistakes || 0;
-
-  const nextState = {
-    ...state,
-    recent: nextRecent,
-    repeatedHeuristicMistakes,
-  };
-
-  return {
-    ...nextState,
-    difficulty: getAdaptivePredictionDifficulty(nextState),
   };
 }
 
@@ -187,7 +99,7 @@ function App() {
   // -- state --
   const getInitialTheme = () => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return storedTheme === 'light' ? 'light' : 'dark';
+    return storedTheme === 'dark' ? 'dark' : 'light';
   };
   const getInitialRoute = () => {
     const path = window.location.pathname;
@@ -259,8 +171,6 @@ function App() {
     awaitingContinue: false,
     continueFunc: null,
     feedbackType: 'question',
-    difficulty: INITIAL_ADAPTIVE_PREDICTION_STATE.difficulty,
-    adaptationReason: '',
   });
   const [scoreState, setScoreState] = useState(INITIAL_SCORE_STATE);
   const [formalTrace, setFormalTrace] = useState([]);
@@ -271,6 +181,7 @@ function App() {
   const [isPaused, setIsPaused] = useState(false);
   const [pausedComparison, setPausedComparison] = useState(null);
   const [hoveredFrontierNode, setHoveredFrontierNode] = useState(null);
+  const [pinnedHoveredFrontierNodeKey, setPinnedHoveredFrontierNodeKey] = useState(null);
   const [rewindHoverTarget, setRewindHoverTarget] = useState(null);
   const isObstaclePainting = isObstacleMode && isMousePressed;
   const pausedPhaseRef = useRef('idle');
@@ -325,13 +236,11 @@ function App() {
   const quizStateRef = useRef(quizState);
   const scoreStateRef = useRef(INITIAL_SCORE_STATE);
   const quizProgressRef = useRef({
-    questionStartedAt: 0,
     attempts: 0,
     selectedKeys: new Set(),
     awarded: false,
     correctKey: null,
   });
-  const adaptivePredictionRef = useRef(INITIAL_ADAPTIVE_PREDICTION_STATE);
   const formalTraceRef = useRef(formalTrace);
   const pausedComparisonRef = useRef(null);
   const runStateRef = useRef({
@@ -389,9 +298,7 @@ function App() {
 
   const resetGamification = useCallback(() => {
     setScoreState(INITIAL_SCORE_STATE);
-    adaptivePredictionRef.current = INITIAL_ADAPTIVE_PREDICTION_STATE;
     quizProgressRef.current = {
-      questionStartedAt: 0,
       attempts: 0,
       selectedKeys: new Set(),
       awarded: false,
@@ -422,6 +329,23 @@ function App() {
   useEffect(() => {
     pausedComparisonRef.current = pausedComparison;
   }, [pausedComparison]);
+
+  useEffect(() => {
+    if (!pinnedHoveredFrontierNodeKey) return undefined;
+
+    const closePinnedTraceOnOutsideClick = (event) => {
+      const pinnedPanel = event.target?.closest?.('.node-proof-hover-panel-pinned');
+      if (pinnedPanel) return;
+
+      setPinnedHoveredFrontierNodeKey(null);
+      setHoveredFrontierNode(null);
+    };
+
+    document.addEventListener('pointerdown', closePinnedTraceOnOutsideClick, true);
+    return () => {
+      document.removeEventListener('pointerdown', closePinnedTraceOnOutsideClick, true);
+    };
+  }, [pinnedHoveredFrontierNodeKey]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -578,6 +502,7 @@ function App() {
     setActiveHeuristicAuditIndex(-1);
     setPausedComparison(null);
     setHoveredFrontierNode(null);
+    setPinnedHoveredFrontierNodeKey(null);
     clearRewindHoverTarget();
     setTraceNotice('');
     setSimulationPhase('idle');
@@ -713,6 +638,7 @@ function App() {
       setActiveHeuristicAuditIndex(heuristicAuditLog.length > 0 ? index : -1);
       setPausedComparison(null);
       setHoveredFrontierNode(null);
+      setPinnedHoveredFrontierNodeKey(null);
 
       if (isVisualizing) {
         setIsPaused(true);
@@ -780,30 +706,14 @@ function App() {
 
         // Check if the clicked node is one of the correct ones
         const isCorrect = quizState.correctNodes?.some(c => c.row === row && c.col === col);
-        const clickedFrontierNode = quizState.frontierByKey?.[key];
-        const heuristicMistake =
-          !isCorrect &&
-          quizState.ruleMeta?.algorithm === 'astar' &&
-          clickedFrontierNode &&
-          clickedFrontierNode.h === quizState.ruleMeta.minHOverall &&
-          clickedFrontierNode.f !== quizState.ruleMeta.minF;
         
         if (isCorrect) {
-          adaptivePredictionRef.current = recordAdaptivePredictionResult(
-            adaptivePredictionRef.current,
-            { correct: true, heuristicMistake: false }
-          );
-          const responseTimeMs =
-            quizProgressRef.current.questionStartedAt > 0
-              ? performance.now() - quizProgressRef.current.questionStartedAt
-              : 0;
           const attemptsUsed = quizProgressRef.current.attempts;
           const nextPerfectStreak =
             attemptsUsed === 1 ? (scoreStateRef.current.currentStreak || 0) + 1 : 0;
-          const scoring = calculateQuestionScore(attemptsUsed, responseTimeMs, {
+          const scoring = calculateQuestionScore(attemptsUsed, {
             frontierSize: quizState.candidates?.length || 0,
             streak: nextPerfectStreak,
-            timeLimitSeconds: quizState.timeLimitSeconds,
           });
           quizProgressRef.current.awarded = true;
           quizProgressRef.current.correctKey = `${row}-${col}`;
@@ -815,8 +725,6 @@ function App() {
             correctAnswers: prev.correctAnswers + 1,
             totalAttempts: prev.totalAttempts + attemptsUsed,
             totalAccuracyScore: prev.totalAccuracyScore + scoring.accuracy,
-            totalResponseTime: prev.totalResponseTime + scoring.responseSeconds,
-            totalSpeedBonus: prev.totalSpeedBonus + scoring.speedBonus,
             totalFrontierBonus: prev.totalFrontierBonus + scoring.frontierBonus,
             currentStreak: nextPerfectStreak,
             bestStreak: Math.max(prev.bestStreak, nextPerfectStreak),
@@ -827,9 +735,7 @@ function App() {
               {
                 accuracy: scoring.accuracy,
                 attempts: attemptsUsed,
-                responseSeconds: scoring.responseSeconds,
                 questionScore: scoring.questionScore,
-                speedBonus: scoring.speedBonus,
                 frontierBonus: scoring.frontierBonus,
                 comboMultiplier: scoring.comboMultiplier,
                 streak: nextPerfectStreak,
@@ -838,7 +744,6 @@ function App() {
             ],
             lastQuestionScore: scoring.questionScore,
             lastAccuracy: scoring.accuracy,
-            lastResponseTime: scoring.responseSeconds,
             lastAttempts: attemptsUsed,
           }));
 
@@ -861,10 +766,6 @@ function App() {
 
           showGamifiedPopup(row, col, `${scoring.rank} +${scoring.questionScore}`, 'positive');
         } else {
-          adaptivePredictionRef.current = recordAdaptivePredictionResult(
-            adaptivePredictionRef.current,
-            { correct: false, heuristicMistake }
-          );
           // Wrong answer
           const el = document.getElementById(`node-${row}-${col}`) || document.getElementById(`bfs-node-${row}-${col}`) || document.getElementById(`astar-node-${row}-${col}`);
           if (el) el.classList.add('node-prediction-wrong');
@@ -880,9 +781,7 @@ function App() {
           setQuizState(prev => ({
             ...prev,
             feedbackType: 'incorrect',
-            message: heuristicMistake
-              ? `${detailedMessage} Adaptive note: this looks like an h(n)-only choice. A* must compare f(n)=g(n)+h(n).`
-              : detailedMessage,
+            message: detailedMessage,
             attemptCount: quizProgressRef.current.attempts,
             streak: 0,
             // Keep Continue visible if the learner already selected a valid next node.
@@ -890,6 +789,20 @@ function App() {
           }));
         }
         return;
+      }
+
+      if (isPaused && pausedComparison?.frontierNodes?.length) {
+        const key = `${row}-${col}`;
+        const pausedFrontierNode = pausedComparison.frontierNodes.find(
+          (node) => `${node.row}-${node.col}` === key
+        );
+
+        if (pausedFrontierNode) {
+          setHoveredFrontierNode(pausedFrontierNode);
+          setPinnedHoveredFrontierNodeKey(key);
+          event?.preventDefault?.();
+          return;
+        }
       }
 
       if (isVisualizing) return;
@@ -911,6 +824,7 @@ function App() {
       grid,
       isObstacleMode,
       gridEndpoints,
+      pausedComparison,
       showGamifiedPopup,
       applyObstacleState,
       rewindToTraversedNode,
@@ -944,8 +858,17 @@ function App() {
 
       if (hoverSource?.frontierByKey) {
         const hovered = hoverSource.frontierByKey[`${row}-${col}`] || null;
-        setHoveredFrontierNode(hovered);
-      } else if (hoveredFrontierNode) {
+        if (!pinnedHoveredFrontierNodeKey) {
+          const currentHoveredKey = hoveredFrontierNode
+            ? `${hoveredFrontierNode.row}-${hoveredFrontierNode.col}`
+            : null;
+          const nextHoveredKey = hovered ? `${hovered.row}-${hovered.col}` : null;
+
+          if (currentHoveredKey !== nextHoveredKey) {
+            setHoveredFrontierNode(hovered);
+          }
+        }
+      } else if (hoveredFrontierNode && !pinnedHoveredFrontierNodeKey) {
         setHoveredFrontierNode(null);
       }
 
@@ -972,6 +895,7 @@ function App() {
       isPaused,
       pausedComparison,
       hoveredFrontierNode,
+      pinnedHoveredFrontierNodeKey,
       rewindHoverTarget,
       isRaceMode,
       quizState,
@@ -1005,6 +929,7 @@ function App() {
     const comparison = getNextComparison();
     setPausedComparison(comparison);
     setHoveredFrontierNode(null);
+    setPinnedHoveredFrontierNodeKey(null);
     applyFrontierHoverHighlight(comparison?.frontierNodes || []);
     applyNextChoiceHighlight(comparison?.candidateNodes || []);
   }, [clearAllTimeouts, getNextComparison]);
@@ -1014,6 +939,7 @@ function App() {
     clearFrontierHoverHighlight();
     setPausedComparison(null);
     setHoveredFrontierNode(null);
+    setPinnedHoveredFrontierNodeKey(null);
     setSimulationPhase(pausedPhaseRef.current || runStateRef.current.phase || 'idle');
 
     const run = runStateRef.current;
@@ -1053,6 +979,7 @@ function App() {
       clearFrontierHoverHighlight();
       setPausedComparison(null);
       setHoveredFrontierNode(null);
+      setPinnedHoveredFrontierNodeKey(null);
 
       const maxPosition = run.visited.length + run.path.length;
       const currentPosition =
@@ -1281,13 +1208,9 @@ function App() {
           run.optionsByIndex &&
           run.optionsByIndex[i]
         ) {
-          const adaptivePrompt = buildAdaptivePredictionPrompt(
-            run.optionsByIndex[i],
-            formalTraceRef.current[i],
-            adaptivePredictionRef.current
-          );
-          const selectable = adaptivePrompt?.selectable || [];
-          const correct = adaptivePrompt?.correct || [];
+          const predictionPrompt = buildPredictionPrompt(run.optionsByIndex[i]);
+          const selectable = predictionPrompt?.selectable || [];
+          const correct = predictionPrompt?.correct || [];
           if (selectable && selectable.length > 0) {
 
             selectable.forEach((c) => {
@@ -1327,14 +1250,9 @@ function App() {
                 feedbackType: 'question',
                 attemptCount: 0,
                 challengeIndex: 0,
-                timeLimitSeconds: 0,
-                deadlineAt: 0,
                 lastScoring: null,
-                difficulty: adaptivePredictionRef.current.difficulty,
-                adaptationReason: '',
               });
               quizProgressRef.current = {
-                questionStartedAt: 0,
                 attempts: 0,
                 selectedKeys: new Set(),
                 awarded: false,
@@ -1352,21 +1270,18 @@ function App() {
               scheduleNextTick();
             };
 
-            const timeLimitSeconds = getPredictionTimeLimitSeconds(selectable.length);
             const challengeIndex = (scoreStateRef.current.questionsAnswered || 0) + 1;
 
             setQuizState({
               active: true,
               candidates: selectable,
               correctNodes: correct,
-              message: `Round ${challengeIndex}: predict the next expansion before the bonus drains. Click one glowing frontier node.`,
+              message: `Round ${challengeIndex}: predict the next expansion. Click one glowing frontier node.`,
               awaitingContinue: false,
               continueFunc: continueAfterFeedback,
               feedbackType: 'question',
               attemptCount: 0,
               challengeIndex,
-              timeLimitSeconds,
-              deadlineAt: performance.now() + timeLimitSeconds * 1000,
               streak: scoreStateRef.current.currentStreak || 0,
               lastScoring: null,
               ruleMeta: (() => {
@@ -1406,11 +1321,8 @@ function App() {
                 });
                 return byKey;
               })(),
-              difficulty: adaptivePrompt.difficulty,
-              adaptationReason: adaptivePrompt.adaptationReason,
             });
             quizProgressRef.current = {
-              questionStartedAt: performance.now(),
               attempts: 0,
               selectedKeys: new Set(),
               awarded: false,
@@ -1568,6 +1480,7 @@ function App() {
     setActiveHeuristicAuditIndex(-1);
     setPausedComparison(null);
     setHoveredFrontierNode(null);
+    setPinnedHoveredFrontierNodeKey(null);
     setTraceNotice('');
 
     const ms = SPEED_MS[speed];
@@ -1633,6 +1546,7 @@ function App() {
           setIsPaused(false);
           isPausedRef.current = false;
           setHoveredFrontierNode(null);
+          setPinnedHoveredFrontierNodeKey(null);
           setSimulationPhase('done');
           setRunSummary(
             buildRunSummary({
@@ -1746,6 +1660,7 @@ function App() {
           isPausedRef.current = false;
           setPausedComparison(null);
           setHoveredFrontierNode(null);
+          setPinnedHoveredFrontierNodeKey(null);
           clearNextChoiceHighlight();
           setRunSummary(
             buildRunSummary({
@@ -1796,7 +1711,8 @@ function App() {
 
   const renderTraceEquation = useCallback((scores, options = {}) => {
     const animate = typeof options === 'object' && Boolean(options.animate);
-    return <TraceEquation scores={scores} animate={animate} />;
+    const equationAlgorithm = typeof options === 'object' ? options.algorithm : undefined;
+    return <TraceEquation scores={scores} algorithm={equationAlgorithm} animate={animate} />;
   }, []);
 
   const hoveredNodeDecision = useMemo(
@@ -1853,16 +1769,16 @@ function App() {
     clearPreviewPathHighlight();
     if (currentRoute !== '/visualizer') return undefined;
 
+    const hasHoveredForwardPreview = hoveredForwardPreviewPath.length > 0;
+    const hasHoveredBackwardPreview = hoveredBackwardPreviewPath.length > 0;
     const backwardPreview =
-      hoveredBackwardPreviewPath.length > 0
+      hasHoveredBackwardPreview
         ? hoveredBackwardPreviewPath
         : activeTraceBackwardPreviewPath;
     const forwardPreview =
-      hoveredForwardPreviewPath.length > 0
-        ? hoveredForwardPreviewPath
-        : activeTraceForwardPreviewPath;
+      hasHoveredForwardPreview ? hoveredForwardPreviewPath : activeTraceForwardPreviewPath;
     const forwardAlgorithm =
-      hoveredForwardPreviewPath.length > 0
+      hasHoveredForwardPreview
         ? activeHoverComparison?.algorithm
         : currentTrace?.algorithm;
 
@@ -1986,6 +1902,7 @@ function App() {
         onOpenFormalAnalysis={openFormalAnalysis}
         onOpenTruthTerm={openTruthScannerTerm}
         openSettings={openSettings}
+        onTogglePause={togglePause}
         quizState={quizState}
         resetSettingsToDefaults={resetSettingsToDefaults}
         runSummary={runSummary}
@@ -2016,6 +1933,7 @@ function App() {
         handleMouseEnter={handleMouseEnter}
         handleMouseUp={handleMouseUp}
         hoveredFrontierNode={hoveredFrontierNode}
+        isHoveredFrontierNodePinned={Boolean(pinnedHoveredFrontierNodeKey && hoveredFrontierNode)}
         hoveredNodeDecision={hoveredNodeDecision}
         hasOpenModal={isSettingsOpen || isLegendOpen || isRunSummaryOpen}
         isPaused={isPaused}

@@ -38,9 +38,9 @@ export function bfs(grid, startNode, endNode, options = {}) {
           frontierBeforeExpansion: currentFrontier,
           proofChecks: {
             queueDepthRuleHolds: currentNode.distance === frontierMinG,
-            equationHolds: currentNode.distance === currentNode.distance + 0,
+            equationHolds: currentNode.distance === currentNode.distance,
           },
-          equation: `f(n)=g(n)+h(n)=${currentNode.distance}+0=${currentNode.distance}`,
+          equation: `depth(n)=g(n)=${currentNode.distance}`,
           attempts: attemptLogs,
           summary:
             'Goal node expanded. BFS optimality holds because first discovery of each node is at minimum depth.',
@@ -87,7 +87,7 @@ export function bfs(grid, startNode, endNode, options = {}) {
           hNew: 0,
           fNew: candidateG,
         },
-        equation: `f(n)=g(n)+h(n)=${candidateG}+0=${candidateG}`,
+        equation: `g(new)=g(current)+1=${currentNode.distance}+1=${candidateG}`,
       });
     }
 
@@ -102,9 +102,9 @@ export function bfs(grid, startNode, endNode, options = {}) {
         frontierBeforeExpansion: currentFrontier,
         proofChecks: {
           queueDepthRuleHolds: currentNode.distance === frontierMinG,
-          equationHolds: currentNode.distance === currentNode.distance + 0,
+          equationHolds: currentNode.distance === currentNode.distance,
         },
-        equation: `f(n)=g(n)+h(n)=${currentNode.distance}+0=${currentNode.distance}`,
+        equation: `depth(n)=g(n)=${currentNode.distance}`,
         attempts: attemptLogs,
         summary:
           'All neighbors were tested. Newly accepted nodes satisfy g(new) = g(current) + 1 and are appended to queue tail.',

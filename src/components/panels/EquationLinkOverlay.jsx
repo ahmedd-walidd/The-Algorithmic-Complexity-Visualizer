@@ -96,7 +96,7 @@ function EquationLinkOverlay({
   const hLabel =
     algorithm === 'astar'
       ? `h(n) = ${hValue} Manhattan distance to goal`
-      : 'h(n) = 0 in BFS';
+      : 'BFS ignores h(n); the queue is ordered by depth g(n).';
 
   return (
     <div
@@ -109,7 +109,7 @@ function EquationLinkOverlay({
         <span className="equation-link-node">({anchor.row}, {anchor.col})</span>
       </div>
 
-      <TraceEquation key={animationKey} scores={scores} animate />
+      <TraceEquation key={animationKey} scores={scores} algorithm={algorithm} animate />
 
       <div className="equation-link-metrics">
         <div className="equation-link-metric equation-link-metric-g">

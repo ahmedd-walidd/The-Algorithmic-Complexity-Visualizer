@@ -1,8 +1,17 @@
-function NodeHoverPanel({ hoveredFrontierNode, activeHoverComparison, hoveredNodeDecision, renderTraceEquation }) {
+function NodeHoverPanel({
+  hoveredFrontierNode,
+  isPinned = false,
+  activeHoverComparison,
+  hoveredNodeDecision,
+  renderTraceEquation,
+}) {
   if (!activeHoverComparison || !hoveredFrontierNode) return null;
 
   return (
-    <section className="node-proof-hover-panel scanner-panel" aria-live="polite">
+    <section
+      className={`node-proof-hover-panel scanner-panel${isPinned ? ' node-proof-hover-panel-pinned' : ''}`}
+      aria-live="polite"
+    >
       <div className="scanner-panel-beam" aria-hidden="true" />
       <div className="scanner-panel-header">
         <span>Frontier Scan</span>
@@ -11,12 +20,15 @@ function NodeHoverPanel({ hoveredFrontierNode, activeHoverComparison, hoveredNod
 
       <div className="trace-card scanner-trace-card">
         <div className="trace-node-banner">
-          <span>Hovered node</span>
+          <span>{isPinned ? 'Pinned hovered node' : 'Hovered node'}</span>
           <strong>({hoveredFrontierNode.row}, {hoveredFrontierNode.col})</strong>
         </div>
 
         <div className="trace-equation-block">
-          {renderTraceEquation(hoveredFrontierNode, { animate: true })}
+          {renderTraceEquation(hoveredFrontierNode, {
+            algorithm: activeHoverComparison.algorithm,
+            animate: true,
+          })}
         </div>
 
         <div className={`hover-decision-card hover-decision-${hoveredNodeDecision.tone}`}>

@@ -161,7 +161,7 @@ const GROUNDING_TABS = [
     items: [
       ['BFS claim', <>The claim is valid when the selected node <MathExpr>n*<sub>t</sub></MathExpr> belongs to <MathExpr>argmin<sub>n∈F<sub>t</sub></sub> depth(n)</MathExpr>; the queue/frontier trace provides the evidence.</>],
       ['A* claim', <>The claim is valid when <MathExpr>n*<sub>t</sub> ∈ argmin<sub>n∈F<sub>t</sub></sub>(g(n)+h(n))</MathExpr>, with equal f-values resolved by lower Manhattan <MathExpr>h(n)</MathExpr>; the heuristic audit table exposes that check.</>],
-      ['Learning claim', <>The learning signal is valid as in-run evidence when the prediction log contains the prompt, learner response, valid candidate set, attempts, and response time. It supports rule fluency during the session, not a standalone causal learning claim.</>],
+      ['Learning claim', <>The learning signal is valid as in-run evidence when the prediction log contains the prompt, learner response, valid candidate set, and attempts. It supports rule fluency during the session, not a standalone causal learning claim.</>],
     ],
   },
 ];
@@ -237,7 +237,7 @@ const VALIDITY_METRICS = [
   ['Expansion reduction', 'A* reduced expanded states versus BFS by 83.2% to 96.6% across tested conditions.'],
   ['Trace validation', 'For each audited A* step, the selected node had minimum frontier f(n)=g(n)+h_M(n), with the recorded tie-break rule.'],
   ['Explanation support', 'The interface links selected audit claims to trace rows, equations, and branching metrics. A separate quantified explanation-validity study was not performed.'],
-  ['Learning limitation', 'Prediction logs measure accuracy, attempts, and response time; they do not by themselves prove long-term learning gain.'],
+  ['Learning limitation', 'Prediction logs measure accuracy and attempts; they do not by themselves prove long-term learning gain.'],
 ];
 
 function TruthTerm({ id, children, onOpen }) {

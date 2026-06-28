@@ -31,11 +31,6 @@
   justify-items: start;
 }
 
-.grid-with-axes-compact-labels .node-hover-preview-forward::after,
-.grid-with-axes-compact-labels .node-hover-preview-backward::before {
-  display: none;
-}
-
 .axis-corner {
   width: 36px;
   height: 24px;

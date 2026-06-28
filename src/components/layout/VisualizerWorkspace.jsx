@@ -15,6 +15,7 @@ function VisualizerWorkspace({
   handleMouseEnter,
   handleMouseUp,
   hoveredFrontierNode,
+  isHoveredFrontierNodePinned,
   hoveredNodeDecision,
   hasOpenModal = false,
   isPaused,
@@ -110,6 +111,7 @@ function VisualizerWorkspace({
         {!isRaceMode && (
           <NodeHoverPanel
             hoveredFrontierNode={hoveredFrontierNode}
+            isPinned={isHoveredFrontierNodePinned}
             activeHoverComparison={activeHoverComparison}
             hoveredNodeDecision={hoveredNodeDecision}
             renderTraceEquation={renderTraceEquation}

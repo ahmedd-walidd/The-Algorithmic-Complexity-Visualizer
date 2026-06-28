@@ -345,20 +345,12 @@ function RunSummaryModal({
                 <strong>{formatNumber(learning.averageAttempts)}</strong>
               </div>
               <div className="run-summary-metric">
-                <span>Avg time</span>
-                <strong>{formatNumber(learning.averageResponseSeconds)}s</strong>
-              </div>
-              <div className="run-summary-metric">
                 <span>Best streak</span>
                 <strong>{learning.bestStreak}</strong>
               </div>
               <div className="run-summary-metric">
                 <span>Perfect reads</span>
                 <strong>{learning.perfectAnswers}</strong>
-              </div>
-              <div className="run-summary-metric">
-                <span>Avg speed bonus</span>
-                <strong>{formatNumber(learning.averageSpeedBonus)}</strong>
               </div>
               <div className="run-summary-metric">
                 <span>Avg frontier bonus</span>
