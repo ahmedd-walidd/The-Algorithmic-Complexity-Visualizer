@@ -125,7 +125,7 @@ export function auditAStarDecision(step, frontier, selectedNode) {
     tieCount,
     tieHandling:
       tieCount > 1
-        ? 'Tie on f(n); selected node must have the lowest Manhattan h(n), then the earliest insertion order among still-tied candidates.'
+        ? 'Tie on f(n); selected node must have the lowest Manhattan h(n).'
         : 'No f(n) tie; selected node only needs the minimum f(n).',
     candidates,
   };

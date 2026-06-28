@@ -858,6 +858,10 @@ function App() {
 
       if (hoverSource?.frontierByKey) {
         const hovered = hoverSource.frontierByKey[`${row}-${col}`] || null;
+        if (hovered && !isSidePanelOpen) {
+          setIsSidePanelOpen(true);
+        }
+
         if (!pinnedHoveredFrontierNodeKey) {
           const currentHoveredKey = hoveredFrontierNode
             ? `${hoveredFrontierNode.row}-${hoveredFrontierNode.col}`
@@ -897,6 +901,7 @@ function App() {
       hoveredFrontierNode,
       pinnedHoveredFrontierNodeKey,
       rewindHoverTarget,
+      isSidePanelOpen,
       isRaceMode,
       quizState,
       isObstacleMode,

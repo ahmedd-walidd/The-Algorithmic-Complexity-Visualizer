@@ -70,7 +70,7 @@ export function astar(grid, startNode, endNode, options = {}) {
             f: currentNode.totalDistance,
           },
           selectedBecause:
-            'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h, then insertion order).',
+            'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h).',
           frontierBeforeExpansion: currentFrontier,
           proofChecks: {
             frontierMinRuleHolds:
@@ -181,7 +181,7 @@ export function astar(grid, startNode, endNode, options = {}) {
           f: currentNode.totalDistance,
         },
         selectedBecause:
-          'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h, then insertion order).',
+          'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h).',
         frontierBeforeExpansion: currentFrontier,
         proofChecks: {
           frontierMinRuleHolds:

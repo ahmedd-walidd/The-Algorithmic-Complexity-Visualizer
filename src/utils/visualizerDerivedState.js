@@ -62,7 +62,7 @@ export function getHoveredNodeDecision(hoveredFrontierNode, activeHoverCompariso
 
     if (hasMinF && hasBestTieBreak && hasBestInsertionOrder) {
       return {
-        text: 'Would be chosen next: minimum frontier f, lower Manhattan h, and earliest insertion order.',
+        text: 'Would be chosen next: minimum frontier f and lower Manhattan h.',
         tone: 'chosen',
       };
     }
@@ -76,7 +76,7 @@ export function getHoveredNodeDecision(hoveredFrontierNode, activeHoverCompariso
 
     if (hasBestTieBreak) {
       return {
-        text: `Not chosen yet: ties on f and h, but insertion order ${hoveredFrontierNode.insertionOrder} is later than ${minInsertionOrderAmongTiedCandidates}.`,
+        text: 'Not chosen yet: it ties on f and h with another frontier candidate.',
         tone: 'not-chosen',
       };
     }

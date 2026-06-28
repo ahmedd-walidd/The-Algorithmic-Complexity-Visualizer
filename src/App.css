@@ -3401,10 +3401,18 @@
 }
 
 .heuristic-audit-timeline-note span {
-  color: #f8f0b8;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: #facc15;
+  color: #111827;
   font-size: 0.75rem;
   font-weight: 900;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.32);
 }
 
 .heuristic-audit-timeline-note p {
@@ -4424,6 +4432,14 @@
 :root[data-theme='light'] .landing-preset-card,
 :root[data-theme='light'] .landing-tutorial-tab,
 :root[data-theme='light'] .landing-tutorial-stage,
+:root[data-theme='light'] .run-summary-section,
+:root[data-theme='light'] .run-summary-card,
+:root[data-theme='light'] .run-summary-ledger-card,
+:root[data-theme='light'] .run-summary-proof-item,
+:root[data-theme='light'] .race-delta-card,
+:root[data-theme='light'] .manifesto-run-card,
+:root[data-theme='light'] .run-summary-metric,
+:root[data-theme='light'] .run-summary-table-wrap,
 :root[data-theme='light'] .truth-section,
 :root[data-theme='light'] .truth-metric,
 :root[data-theme='light'] .truth-proof-card,
@@ -4464,6 +4480,14 @@
 :root[data-theme='light'] .landing-tutorial-tab.active,
 :root[data-theme='light'] .landing-tutorial-tab:hover,
 :root[data-theme='light'] .landing-tutorial-tab:focus-visible,
+:root[data-theme='light'] .run-summary-card--bfs,
+:root[data-theme='light'] .run-summary-card--astar,
+:root[data-theme='light'] .run-summary-proof-item.tone-verified,
+:root[data-theme='light'] .run-summary-proof-item.tone-supported,
+:root[data-theme='light'] .run-summary-proof-item.tone-computed,
+:root[data-theme='light'] .run-summary-proof-item.tone-partial,
+:root[data-theme='light'] .run-summary-metric.tone-equal,
+:root[data-theme='light'] .manifesto-run-card,
 :root[data-theme='light'] .truth-section-accent,
 :root[data-theme='light'] .truth-equation-card,
 :root[data-theme='light'] .truth-manifesto-tabs button.active,
@@ -4499,6 +4523,187 @@
   color: var(--theme-blue);
 }
 
+:root[data-theme='light'] .run-summary-section h3,
+:root[data-theme='light'] .run-summary-card h3,
+:root[data-theme='light'] .run-summary-ledger-card h4,
+:root[data-theme='light'] .manifesto-run-card h4 {
+  color: var(--theme-ink);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .run-summary-section p,
+:root[data-theme='light'] .run-summary-card p,
+:root[data-theme='light'] .run-summary-proof-item p,
+:root[data-theme='light'] .race-delta-card p,
+:root[data-theme='light'] .run-summary-table td {
+  color: var(--theme-soft-ink);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .run-summary-proof-heading span,
+:root[data-theme='light'] .race-delta-card span,
+:root[data-theme='light'] .run-summary-metric span,
+:root[data-theme='light'] .run-summary-table th {
+  color: var(--theme-blue);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .run-summary-proof-heading strong,
+:root[data-theme='light'] .manifesto-run-card strong,
+:root[data-theme='light'] .run-summary-formal-block strong,
+:root[data-theme='light'] .run-summary-section p strong,
+:root[data-theme='light'] .run-summary-card p strong,
+:root[data-theme='light'] .race-delta-card strong,
+:root[data-theme='light'] .run-summary-metric strong {
+  color: var(--theme-ink);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .run-summary-proof-item code,
+:root[data-theme='light'] .run-summary-formal-block code,
+:root[data-theme='light'] .truth-equation-card code,
+:root[data-theme='light'] .truth-algorithm-card code,
+:root[data-theme='light'] .truth-axiom-card code,
+:root[data-theme='light'] .truth-inline-equation,
+:root[data-theme='light'] .truth-trace-panel code,
+:root[data-theme='light'] .truth-concept-panel pre {
+  background: var(--theme-code-bg);
+  border-color: rgba(37, 99, 165, 0.24);
+  color: var(--theme-code);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .run-summary-table th {
+  background: #edf6ff;
+}
+
+:root[data-theme='light'] .run-summary-note {
+  color: var(--theme-accent-strong) !important;
+}
+
+:root[data-theme='light'] .run-summary-card--bfs,
+:root[data-theme='light'] .race-delta-card-info,
+:root[data-theme='light'] .run-summary-metric.tone-computed {
+  background: rgba(37, 99, 165, 0.09);
+  border-color: rgba(37, 99, 165, 0.34);
+}
+
+:root[data-theme='light'] .run-summary-card--astar,
+:root[data-theme='light'] .race-delta-card-positive,
+:root[data-theme='light'] .run-summary-metric.tone-better {
+  background: rgba(20, 122, 74, 0.1);
+  border-color: rgba(20, 122, 74, 0.34);
+}
+
+:root[data-theme='light'] .race-delta-card-warning,
+:root[data-theme='light'] .run-summary-metric.tone-higher {
+  background: rgba(180, 35, 62, 0.08);
+  border-color: rgba(180, 35, 62, 0.3);
+}
+
+:root[data-theme='light'] .race-delta-card-equal,
+:root[data-theme='light'] .run-summary-metric.tone-equal,
+:root[data-theme='light'] .run-summary-proof-item.tone-partial {
+  background: rgba(183, 121, 31, 0.1);
+  border-color: rgba(183, 121, 31, 0.3);
+}
+
+:root[data-theme='light'] .race-delta-card-positive strong,
+:root[data-theme='light'] .run-summary-metric.tone-better strong {
+  color: var(--theme-green);
+}
+
+:root[data-theme='light'] .race-delta-card-warning strong,
+:root[data-theme='light'] .run-summary-metric.tone-higher strong {
+  color: var(--theme-red);
+}
+
+:root[data-theme='light'] .race-delta-card-equal strong,
+:root[data-theme='light'] .run-summary-metric.tone-equal strong,
+:root[data-theme='light'] .run-summary-proof-item.tone-partial .run-summary-proof-heading strong {
+  color: var(--theme-accent-strong);
+}
+
+:root[data-theme='light'] .race-delta-card-info strong,
+:root[data-theme='light'] .run-summary-proof-item.tone-computed .run-summary-proof-heading strong {
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .run-summary-proof-item.tone-verified .run-summary-proof-heading strong,
+:root[data-theme='light'] .run-summary-proof-item.tone-supported .run-summary-proof-heading strong {
+  color: var(--theme-green);
+}
+
+:root[data-theme='light'] .truth-primary-btn {
+  border-color: rgba(138, 90, 8, 0.55);
+  background: #f2c94c;
+  color: #111827;
+}
+
+:root[data-theme='light'] .truth-secondary-btn,
+:root[data-theme='light'] .truth-manifesto-tabs button,
+:root[data-theme='light'] .truth-concept-tabs button {
+  background: #ffffff;
+  border-color: var(--theme-border);
+  color: var(--theme-ink);
+  box-shadow: var(--theme-inner-shadow);
+  text-shadow: none;
+}
+
+:root[data-theme='light'] .truth-secondary-btn:hover,
+:root[data-theme='light'] .truth-secondary-btn:focus-visible,
+:root[data-theme='light'] .truth-manifesto-tabs button:hover,
+:root[data-theme='light'] .truth-manifesto-tabs button:focus-visible,
+:root[data-theme='light'] .truth-manifesto-tabs button.active,
+:root[data-theme='light'] .truth-concept-tabs button:hover,
+:root[data-theme='light'] .truth-concept-tabs button:focus-visible,
+:root[data-theme='light'] .truth-concept-tabs button.active {
+  background: var(--theme-panel-tint);
+  border-color: var(--theme-border-strong);
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .truth-term {
+  border-bottom-color: rgba(138, 90, 8, 0.72);
+  color: var(--theme-accent-strong);
+}
+
+:root[data-theme='light'] .truth-term:hover,
+:root[data-theme='light'] .truth-term:focus-visible {
+  border-bottom-color: var(--theme-blue);
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .truth-audit-table {
+  color: var(--theme-soft-ink);
+}
+
+:root[data-theme='light'] .truth-audit-table caption {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .truth-audit-table th {
+  color: var(--theme-blue);
+}
+
+:root[data-theme='light'] .truth-audit-table td {
+  color: var(--theme-soft-ink);
+}
+
+:root[data-theme='light'] .truth-audit-table tr.selected td {
+  background: rgba(20, 122, 74, 0.12);
+  color: var(--theme-green);
+}
+
+:root[data-theme='light'] .truth-equation-card-large code:first-child,
+:root[data-theme='light'] .truth-verdict strong {
+  color: var(--theme-ink);
+}
+
+:root[data-theme='light'] .truth-metric small {
+  color: var(--theme-soft-ink);
+}
+
 :root[data-theme='light'] .side-panel-title {
   background: var(--theme-panel-soft);
   border-color: var(--theme-border-strong);
@@ -4524,6 +4729,12 @@
 :root[data-theme='light'] .heuristic-audit-summary p,
 :root[data-theme='light'] .heuristic-audit-timeline-note p {
   color: var(--theme-soft-ink);
+}
+
+:root[data-theme='light'] .heuristic-audit-timeline-note span {
+  background: var(--theme-blue);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(37, 99, 165, 0.28);
 }
 
 :root[data-theme='light'] .trace-proof-list strong,

@@ -35,10 +35,10 @@ function setPreviewScoreLabel(el, kind, labelValue) {
   const numericLabel = String(labelValue);
 
   if (kind === 'forward') {
-    el.dataset.forwardLabel = numericLabel;
+    el.dataset.forwardLabel = `h${numericLabel}`;
     el.dataset.forwardCompactLabel = numericLabel;
   } else {
-    el.dataset.backwardLabel = numericLabel;
+    el.dataset.backwardLabel = `g${numericLabel}`;
     el.dataset.backwardCompactLabel = numericLabel;
   }
 }
