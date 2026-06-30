@@ -311,8 +311,6 @@ function RunSummaryModal({
             <div className="run-summary-formal-block">
               <p><strong>Equation:</strong> <code>{analysis.finalEquation}</code></p>
               <p><strong>Complexity:</strong> {analysis.formal.complexity}</p>
-              <p><strong>Optimality:</strong> {analysis.formal.optimality}</p>
-              <p><strong>Path:</strong> {analysis.pathPreview}</p>
             </div>
           </section>
         ))}

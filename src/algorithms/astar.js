@@ -12,11 +12,10 @@ export function astar(grid, startNode, endNode, options = {}) {
   const openSet = new BinaryMinHeap(compareAStarNodes);
   const formalTraceByIndex = [];
   const heuristicAuditByIndex = [];
+  const goalDistanceMap = buildGoalDistanceMap(grid, endNode);
 
-  // h(n) is the O(1) Manhattan-distance heuristic h_M. Walls are handled only
-  // by successor validation below, not by precomputing wall-adjusted distances.
   startNode.distance = 0;
-  startNode.heuristic = manhattanHeuristic(startNode, endNode);
+  startNode.heuristic = getRemainingDistanceHeuristic(startNode, endNode, grid, goalDistanceMap);
   startNode.totalDistance = startNode.heuristic;
   openSet.push(startNode);
 
@@ -35,6 +34,7 @@ export function astar(grid, startNode, endNode, options = {}) {
       h: q.heuristic,
       f: q.totalDistance,
       insertionOrder: q.insertionOrder,
+      path: getPathCoordinates(q),
     }));
     const frontierMinF = Math.min(...currentFrontier.map((n) => n.f));
     const frontierMinHAmongMinF = Math.min(
@@ -69,6 +69,7 @@ export function astar(grid, startNode, endNode, options = {}) {
             h: currentNode.heuristic,
             f: currentNode.totalDistance,
           },
+          expandedPath: getPathCoordinates(currentNode),
           selectedBecause:
             'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h).',
           frontierBeforeExpansion: currentFrontier,
@@ -96,7 +97,7 @@ export function astar(grid, startNode, endNode, options = {}) {
       const previousG = neighbor.distance;
       const previousH = Number.isFinite(neighbor.totalDistance)
         ? neighbor.heuristic
-        : manhattanHeuristic(neighbor, endNode);
+        : getRemainingDistanceHeuristic(neighbor, endNode, grid, goalDistanceMap);
       const previousF = Number.isFinite(neighbor.totalDistance)
         ? neighbor.totalDistance
         : previousG + previousH;
@@ -123,7 +124,7 @@ export function astar(grid, startNode, endNode, options = {}) {
 
       if (tentativeG < neighbor.distance) {
         neighbor.distance = tentativeG;
-        neighbor.heuristic = manhattanHeuristic(neighbor, endNode);
+        neighbor.heuristic = getRemainingDistanceHeuristic(neighbor, endNode, grid, goalDistanceMap);
         neighbor.totalDistance = neighbor.distance + neighbor.heuristic;
         neighbor.previousNode = currentNode;
 
@@ -180,6 +181,7 @@ export function astar(grid, startNode, endNode, options = {}) {
           h: currentNode.heuristic,
           f: currentNode.totalDistance,
         },
+        expandedPath: getPathCoordinates(currentNode),
         selectedBecause:
           'Chosen because it has minimum f on the frontier (tie-broken by lower Manhattan h).',
         frontierBeforeExpansion: currentFrontier,
@@ -232,6 +234,28 @@ export function astar(grid, startNode, endNode, options = {}) {
   });
 
   return { visitedNodesInOrder, predictionOptionsByIndex, formalTraceByIndex, heuristicAuditByIndex };
+}
+
+function getPathCoordinates(node) {
+  const path = [];
+  let current = node;
+
+  while (current) {
+    path.unshift({ row: current.row, col: current.col });
+    current = current.previousNode;
+  }
+
+  return path;
+}
+
+function getRemainingDistanceHeuristic(node, goalNode, grid, goalDistanceMap) {
+  const distanceToGoal = goalDistanceMap[node.row]?.[node.col];
+
+  if (Number.isFinite(distanceToGoal)) {
+    return distanceToGoal;
+  }
+
+  return grid.length * grid[0].length + manhattanHeuristic(node, goalNode);
 }
 
 function compareAStarNodes(a, b) {
@@ -351,6 +375,33 @@ class BinaryMinHeap {
     this.indexByNode.set(this.heap[a], a);
     this.indexByNode.set(this.heap[b], b);
   }
+}
+
+function buildGoalDistanceMap(grid, endNode) {
+  const distances = grid.map((row) => row.map(() => Infinity));
+
+  if (!endNode || endNode.isWall) {
+    return distances;
+  }
+
+  const queue = [endNode];
+  let head = 0;
+  distances[endNode.row][endNode.col] = 0;
+
+  while (head < queue.length) {
+    const current = queue[head];
+    head += 1;
+
+    for (const neighbor of getDirectionalNeighbors(current, grid)) {
+      if (neighbor.isWall) continue;
+      if (Number.isFinite(distances[neighbor.row][neighbor.col])) continue;
+
+      distances[neighbor.row][neighbor.col] = distances[current.row][current.col] + 1;
+      queue.push(neighbor);
+    }
+  }
+
+  return distances;
 }
 
 function getDirectionalNeighbors(node, grid) {

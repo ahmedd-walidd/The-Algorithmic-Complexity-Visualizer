@@ -1176,6 +1176,7 @@ function App() {
     const scheduleNextTick = () => {
       const run = runStateRef.current;
       if (isPausedRef.current) return;
+      if (quizStateRef.current.active) return;
       if (run.phase === 'idle' || run.phase === 'done') return;
 
       const delay = run.phase === 'path' ? run.ms * 3 : run.ms;
@@ -1217,6 +1218,7 @@ function App() {
           const selectable = predictionPrompt?.selectable || [];
           const correct = predictionPrompt?.correct || [];
           if (selectable && selectable.length > 0) {
+            const promptIndex = i;
 
             selectable.forEach((c) => {
               const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
@@ -1237,15 +1239,15 @@ function App() {
               selectable.forEach((c) => {
                 const el = document.getElementById(`${run.prefix}node-${c.row}-${c.col}`);
                 if (el) {
-                  const key = `${c.row}-${c.col}`;
-                  el.classList.remove('node-prediction-candidate', 'node-prediction-not-correct');
-                  if (key !== quizProgressRef.current.correctKey) {
-                    el.classList.remove('node-prediction-correct');
-                  }
+                  el.classList.remove(
+                    'node-prediction-candidate',
+                    'node-prediction-not-correct',
+                    'node-prediction-correct'
+                  );
                 }
               });
 
-              setQuizState({
+              const clearedQuizState = {
                 active: false,
                 candidates: [],
                 correctNodes: [],
@@ -1256,7 +1258,9 @@ function App() {
                 attemptCount: 0,
                 challengeIndex: 0,
                 lastScoring: null,
-              });
+              };
+              quizStateRef.current = clearedQuizState;
+              setQuizState(clearedQuizState);
               quizProgressRef.current = {
                 attempts: 0,
                 selectedKeys: new Set(),
@@ -1264,14 +1268,14 @@ function App() {
                 correctKey: null,
               };
 
-              const n = run.visited[run.visitedIndex];
+              const n = run.visited[promptIndex];
               const el = document.getElementById(`${run.prefix}node-${n.row}-${n.col}`);
               if (el && !n.isStart && !n.isEnd && !el.classList.contains('node-prediction-wrong')) {
                 el.classList.add('node-visited');
               }
 
-              run.onStep?.(run.visitedIndex);
-              run.visitedIndex += 1;
+              run.onStep?.(promptIndex);
+              run.visitedIndex = promptIndex + 1;
               scheduleNextTick();
             };
 
@@ -1748,12 +1752,14 @@ function App() {
     }
 
     const anchor = currentTrace.expandedNode;
-    const backwardPath = buildPreviewPath(
-      grid,
-      { row: gridEndpoints.start.row, col: gridEndpoints.start.col },
-      { row: anchor.row, col: anchor.col },
-      'bfs'
-    );
+    const backwardPath = currentTrace.expandedPath?.length
+      ? currentTrace.expandedPath
+      : buildPreviewPath(
+          grid,
+          { row: gridEndpoints.start.row, col: gridEndpoints.start.col },
+          { row: anchor.row, col: anchor.col },
+          'bfs'
+        );
     const forwardPath =
       currentTrace.algorithm === 'astar'
         ? buildPreviewPath(

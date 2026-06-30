@@ -4,16 +4,12 @@ const ALGORITHM_META = {
     scoringRule: 'depth(n)=g(n)',
     complexity:
       'Time O(|V| + |E|), memory O(|V|). On a 4-neighbor grid, |V| ≤ rows×cols and |E| ≤ 2×rows×cols − rows − cols, so BFS is O(rows×cols).',
-    optimality:
-      'BFS is optimal on this unweighted grid because the first time a node is discovered, its g value is the shortest distance from the start.',
   },
   astar: {
     displayName: 'A*',
     scoringRule: 'f(n)=g(n)+h_M(n), h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)|',
     complexity:
       'With a binary-heap priority queue, time is O((|V| + |E|) log |V|) and memory is O(|V|). Manhattan h_M is evaluated in O(1) per node. On a 4-neighbor grid this is O(rows x cols log(rows x cols)).',
-    optimality:
-      'A* is optimal on this 4-connected unit-cost grid because Manhattan distance is admissible and consistent. Walls affect successor generation, not h_M.',
   },
 };
 
@@ -300,17 +296,6 @@ function buildFormalLedger({
           : 'No equation trace was recorded.',
       status: formalTrace.length > 0 && equationChecks === formalTrace.length ? 'verified' : 'partial',
     },
-    {
-      label: 'Optimality Claim',
-      formula:
-        algorithm === 'astar'
-          ? 'Manhattan heuristic h_M(n)=|row(n)-row(goal)|+|col(n)-col(goal)| is admissible and consistent on this 4-connected unit-cost grid.'
-          : 'Unit-cost BFS expands nodes in nondecreasing depth.',
-      evidence: goalReached
-        ? `The returned path depth is d=${solutionDepth}; walls are represented in successor generation, while h_M reads only row and column offsets.`
-        : 'No returned path was available, so no optimal path claim is made for this run.',
-      status: goalReached ? 'supported' : 'not-available',
-    },
   ];
 }
 
@@ -397,7 +382,6 @@ export function buildAlgorithmRunAnalysis({
       model: dynamicFormalModel,
       scoringRule: meta.scoringRule,
       complexity: meta.complexity,
-      optimality: meta.optimality,
       ledger,
     },
   };

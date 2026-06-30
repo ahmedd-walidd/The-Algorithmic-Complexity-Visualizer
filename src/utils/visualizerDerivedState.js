@@ -125,12 +125,14 @@ export function getHoveredPreviewPaths({
         )
       : [];
 
-  const hoveredBackwardPreviewPath = buildPreviewPath(
-    grid,
-    { row: start.row, col: start.col },
-    { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
-    'bfs'
-  );
+  const hoveredBackwardPreviewPath = hoveredFrontierNode.path?.length
+    ? hoveredFrontierNode.path
+    : buildPreviewPath(
+        grid,
+        { row: start.row, col: start.col },
+        { row: hoveredFrontierNode.row, col: hoveredFrontierNode.col },
+        'bfs'
+      );
 
   return {
     hoveredForwardPreviewPath,
@@ -233,6 +235,7 @@ export function getNextTraversalComparison({ isRaceMode, run, formalTrace }) {
         h: node.h,
         f: node.f,
         insertionOrder: node.insertionOrder,
+        path: node.path,
       }));
 
     return {
@@ -246,6 +249,7 @@ export function getNextTraversalComparison({ isRaceMode, run, formalTrace }) {
         h: node.h,
         f: node.f,
         insertionOrder: node.insertionOrder,
+        path: node.path,
       })),
       candidateNodes,
       minComparison: {

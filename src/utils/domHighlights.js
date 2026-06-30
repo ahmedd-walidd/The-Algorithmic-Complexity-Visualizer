@@ -94,7 +94,9 @@ export function applyPreviewPathHighlight(nodes, options = {}) {
 
     const labelValue = (() => {
       if (labelMode === 'heuristic') {
-        return Math.abs(node.row - goalRow) + Math.abs(node.col - goalCol);
+        return Number.isFinite(node.heuristic)
+          ? node.heuristic
+          : Math.abs(node.row - goalRow) + Math.abs(node.col - goalCol);
       }
       if (labelMode === 'remaining') {
         return totalSteps - index;

@@ -203,15 +203,26 @@ function validateManhattanHeuristic() {
   );
   assert.equal(
     astarRun.start.heuristic,
-    calculateManhattanDistance(astarRun.start, astarRun.end),
-    'A* should store Manhattan h(start)'
+    bfsRun.path.length - 1,
+    'A* should store obstacle-aware remaining distance h(start)'
   );
   assert.ok(
-    bfsRun.path.length - 1 > astarRun.start.heuristic,
-    'Manhattan h should ignore walls; this maze requires a longer route than h(start)'
+    astarRun.start.heuristic > calculateManhattanDistance(astarRun.start, astarRun.end),
+    'Obstacle-aware h should include the required detour around walls'
   );
+  assertAstarPathHeuristicCountsDown(astarRun.path);
   assertAstarTraceIsSound(astarRun.result.formalTraceByIndex);
   assertAstarAuditIsSound(astarRun.result.heuristicAuditByIndex);
+}
+
+function assertAstarPathHeuristicCountsDown(path) {
+  for (let index = 1; index < path.length; index += 1) {
+    assert.equal(
+      path[index].heuristic,
+      path[index - 1].heuristic - 1,
+      `A* h(n) should decrease by 1 along the path at index ${index}`
+    );
+  }
 }
 
 function validateStraightCorridor() {
@@ -291,9 +302,10 @@ function validateAstarExpandsBeyondPathOnly() {
     'A* should return the same optimal path length as BFS on the misleading-wall grid'
   );
   assert.ok(
-    astarRun.result.visitedNodesInOrder.length > astarRun.path.length,
-    'A* with Manhattan h should expand beyond only the d+1 path nodes in this misleading layout'
+    astarRun.result.visitedNodesInOrder.length <= bfsRun.result.visitedNodesInOrder.length,
+    'A* should not expand more nodes than BFS in this misleading layout'
   );
+  assertAstarPathHeuristicCountsDown(astarRun.path);
   assertAstarTraceIsSound(astarRun.result.formalTraceByIndex);
   assertAstarAuditIsSound(astarRun.result.heuristicAuditByIndex);
 }
@@ -338,7 +350,7 @@ function main() {
   validateNoPathCase();
   validateEffectiveBranchingFactor();
 
-  console.log('Algorithm validation passed: BFS shortest-depth traces, Manhattan A* f=g+h_M traces, minimum-f/lower-h/insertion-order audit, no-path handling, and effective branching factor are consistent.');
+  console.log('Algorithm validation passed: BFS shortest-depth traces, A* f=g+h traces, minimum-f/lower-h/insertion-order audit, no-path handling, and effective branching factor are consistent.');
 }
 
 main();
